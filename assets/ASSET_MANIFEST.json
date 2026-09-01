@@ -1,0 +1,186 @@
+{
+  "phase": "F1",
+  "note": "Minimal assets only. Full 108-frame sequence is deferred to F3/F2B.",
+  "assets": [
+    {
+      "id": "wordmark-horizontal",
+      "source": "Parca-Zinciri-v6-Final/parca-zinciri-homepage-prototype-v6.html (inline SVG.lock-h)",
+      "destination": "src/public/assets/brand/wordmark-horizontal.svg",
+      "bytes": 6522,
+      "sha256": "FB614938883EC02DD05744C43DCF54CEAE4154D48740367126FD5356DFDB0E20",
+      "usage": "Header and footer brand (inlined in parca-zinciri-app.js)",
+      "status": "production-candidate"
+    },
+    {
+      "id": "mark-icon",
+      "source": "Parca-Zinciri-v6-Final/parca-zinciri-homepage-prototype-v6.html (inline SVG.lock-i)",
+      "destination": "src/public/assets/brand/mark-icon.svg",
+      "bytes": 364,
+      "sha256": "B8013D1E7A4B6A555C84AC1AFD7F60AA39723D0825AA551CEBAB266068D8CA5A",
+      "usage": "Compact header mark ≤820px",
+      "status": "production-candidate"
+    },
+    {
+      "id": "hero-frame-000",
+      "source": "Parca-Zinciri-v6-Final/assets/hero-sequence/frame-000.webp",
+      "destination": "src/public/assets/hero/frame-000.webp",
+      "bytes": 37540,
+      "sha256": "EEE0F63569F70FFE32D065F3DBE52949283407D06B343149AEC65C72ABF251FA",
+      "usage": "Desktop sequence mount preview only (not full engine)",
+      "status": "temporary-staging-preview"
+    },
+    {
+      "id": "hero-mobile",
+      "source": "Parca-Zinciri-v6-Final/assets/hero-sequence/hero-mobile.webp",
+      "destination": "src/public/assets/hero/hero-mobile.webp",
+      "bytes": 39398,
+      "sha256": "DF63CAC0E89A02C966716851320B767AD2182205D0A054F10336D3F003F1912D",
+      "usage": "Mobile poster mount preview",
+      "status": "production-candidate"
+    },
+    {
+      "id": "hero-exploded-loop",
+      "source": "parca-zinciri-wix-clean/assets-source/hero-exploded/",
+      "destination": "assets/hero-exploded/",
+      "cdn": "https://ilkibo.github.io/parca-zinciri-demo-host/assets/hero-exploded/",
+      "files": [
+        {
+          "name": "poster-excavator-master.webp",
+          "bytes": 125634,
+          "sha256": "80fabbf9e0f7d62a56c38d2afeeac423ba796d9e27e3071a24c6f702f9da06bf"
+        }
+      ],
+      "status": "production"
+    },
+    {
+      "id": "hero-assembly",
+      "source": "parca-zinciri-wix-clean/assets-source/hero-assembly/",
+      "destination": "assets/hero-assembly/",
+      "cdn": "https://ilkibo.github.io/parca-zinciri-demo-host/assets/hero-assembly/",
+      "files": [
+        {
+          "name": "1x/base.webp",
+          "bytes": 101396,
+          "sha256": "a9fe422bd9765934772043b4cf35e165dc924317fe5e4f0c1da179e45438b974"
+        },
+        {
+          "name": "1x/arm.webp",
+          "bytes": 212498,
+          "sha256": "cbb076325ec1c988bd461ab7323c5d2f34c93f8cde1a9e239d626ac457e9189c"
+        },
+        {
+          "name": "1x/hood.webp",
+          "bytes": 10028,
+          "sha256": "4e3fb587f4995644aff5647b368ef40478992fcf0edab567a9243ff7df17b725"
+        },
+        {
+          "name": "1x/engine.webp",
+          "bytes": 26846,
+          "sha256": "dae7552bbe27239b18f117b7eefad1f13409421b4104c21f089f74526140d47d"
+        },
+        {
+          "name": "1x/counterwt.webp",
+          "bytes": 9306,
+          "sha256": "9e67acb446614d923cd30ad512788cdde8981ffe58c4e07e80ee4eedeebc5c1f"
+        },
+        {
+          "name": "1x/valveblock.webp",
+          "bytes": 15374,
+          "sha256": "af185808b22a9872d1c57881f0487eb525beb7fa485a9e46199b0cb7fd540c9d"
+        },
+        {
+          "name": "1x/swingmotor.webp",
+          "bytes": 4298,
+          "sha256": "08576cbb0fc705ae01c5b28c1c3a8108b89754bddf328fc42eee3e4ef767df59"
+        },
+        {
+          "name": "1x/swingring.webp",
+          "bytes": 8502,
+          "sha256": "d95bd35930108b257165acef1ea74bd6fdee347158fee7c1238b6c564a9fbb07"
+        },
+        {
+          "name": "1x/trackleft.webp",
+          "bytes": 41324,
+          "sha256": "83a0366c9dbdc750bd4d0f748f36359e8fcded8e843c32844e3783e9d5be1239"
+        },
+        {
+          "name": "1x/trackright.webp",
+          "bytes": 40876,
+          "sha256": "47cdfd4eea0dd0464fa13a8c6ba02e440299101b9f6f6c01e4c12616573c6031"
+        },
+        {
+          "name": "1x/motorleft.webp",
+          "bytes": 13982,
+          "sha256": "3d378afbdc9bd06d1a0243bedbed25ab8e3acaa0503865ce76fd7b3f0a9dd2d4"
+        },
+        {
+          "name": "1x/motorright.webp",
+          "bytes": 16748,
+          "sha256": "29bb62fe6c03b8f11121199ea587cd095328b07bbbe886615a1513f73ea4bce7"
+        },
+        {
+          "name": "2x/base.webp",
+          "bytes": 167784,
+          "sha256": "7cdedee37f68c8f9c35c5ed309037ac95b8cbbdb210533dfb31f054973f7b0a7"
+        },
+        {
+          "name": "2x/arm.webp",
+          "bytes": 526996,
+          "sha256": "3d1c669066a781da1d2d5e9c435927848b6b296442edcb3bbab09e89457272f1"
+        },
+        {
+          "name": "2x/hood.webp",
+          "bytes": 22686,
+          "sha256": "01eb3d421e251e7226938c7bb4451064bb11322b610e76efd009e3dca7ae10ef"
+        },
+        {
+          "name": "2x/engine.webp",
+          "bytes": 67364,
+          "sha256": "827bc991206eb18e0aa007c6e22828897a65d611ca59f058f7c47ecf9409d30e"
+        },
+        {
+          "name": "2x/counterwt.webp",
+          "bytes": 20440,
+          "sha256": "ff69e9896470da17438da15f69ffe767005829d147c4d3f8762c80fee15a9790"
+        },
+        {
+          "name": "2x/valveblock.webp",
+          "bytes": 35450,
+          "sha256": "cfcebdf83c270561c3be161d7cbfff83f3ec5bcb15b22884f98ab39ead9448e7"
+        },
+        {
+          "name": "2x/swingmotor.webp",
+          "bytes": 8576,
+          "sha256": "6d02532c5a267c5e3e5b84d071b3657f62eb552acdd65ce08030e01df1125f1f"
+        },
+        {
+          "name": "2x/swingring.webp",
+          "bytes": 19012,
+          "sha256": "d14c28ca8adeba8027ef9104ae534ed8f3fcb6a603cabd53652a1f7955175bd9"
+        },
+        {
+          "name": "2x/trackleft.webp",
+          "bytes": 108244,
+          "sha256": "22bb517101a8c9e08f644c90374d6fbb935fe4be4edcf41cc91b39c9f0777144"
+        },
+        {
+          "name": "2x/trackright.webp",
+          "bytes": 112344,
+          "sha256": "dc754f7a0e334b5c15a19de1f457a3da9f7dde1d6a7ff7e7aaa5169aa481659d"
+        },
+        {
+          "name": "2x/motorleft.webp",
+          "bytes": 35842,
+          "sha256": "fcd4beccf998d0bf03bb9fbaf3e039ee728194edbe2ab591c641587229e778b2"
+        },
+        {
+          "name": "2x/motorright.webp",
+          "bytes": 41702,
+          "sha256": "c22e466ae552290e82d135288023738083417390cccca653c43afc484fdf8719"
+        }
+      ],
+      "status": "production"
+    }
+  ],
+  "cdnBase": "https://ilkibo.github.io/parca-zinciri-demo-host/assets"
+}

@@ -1,0 +1,11 @@
+{
+  "sourceFile": "Parca_Zinciri_30s_Turkiye_Geneli_Yeni_Muzik.mp4",
+  "sourceBytes": 27336853,
+  "outputs": {
+    "webm": { "file": "parca-zinciri-30s.webm", "bytes": 10869762 },
+    "mp4": { "file": "parca-zinciri-30s.mp4", "bytes": 8723941 },
+    "webp": { "file": "poster.webp", "bytes": 324162 },
+    "avif": { "file": "poster.avif", "bytes": 261213 },
+    "jpg": { "file": "poster.jpg", "bytes": 408918 }
+  }
+}
