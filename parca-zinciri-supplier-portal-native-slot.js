@@ -1864,6 +1864,8 @@ table.data tr.clickable{cursor:pointer}
         return;
       }
       var action = t.getAttribute("data-action");
+      if (action === "load-server-drafts") {this._loadServerDrafts(Number(t.getAttribute("data-offset")) || 0);return;}
+      if (action === "open-server-draft") {this._openServerDraft(t.getAttribute("data-rfq"),t.getAttribute("data-draft"));return;}
       var id = t.getAttribute("data-id") || "";
       var s = this._state;
 
@@ -2024,8 +2026,7 @@ table.data tr.clickable{cursor:pointer}
         return;
       }
       if (action === "preview-quote") {
-        s.modal = { type: "quote-preview" };
-        this._render();
+        this._submitPricedQuote(false);
         return;
       }
       if (action === "send-quote") {
@@ -2531,7 +2532,85 @@ table.data tr.clickable{cursor:pointer}
       return true;
     }
 
+    async _loadServerDrafts(offset) {
+      try {
+        var result=await this._pricedQuoteApi("listSupplierQuoteDrafts",{offset:offset});
+        if (!result || !Array.isArray(result.items)) throw new Error("Talep listesi doğrulanamadı.");
+        this._serverDrafts=result;this._render();
+        if (!result.items.length) this._toast("Sunucu talepleri","Onaylı teklif taslağı bulunamadı. Yerel örnekler gerçek talep değildir.");
+      } catch(err) {this._toast("Talepler okunamadı",err.message);}
+    }
+
+    async _openServerDraft(rfqId,draftId) {
+      try {
+        var draft=await this._pricedQuoteApi("getSupplierQuoteDraft",{rfqId:rfqId,draftId:draftId});
+        this._state.quoteForm={requestId:rfqId,draftId:draft.draftId,partName:draft.partName,qty:draft.quantity,unitPrice:"",currency:"TRY",
+          stockQty:draft.quantity,shipping:draft.shippingTotalMinor/100,condition:"Yeni",brand:"",leadTime:"",
+          validity:draft.expiresAt,warranty:"",notes:"",attachmentName:"",serverApproved:true,status:"Taslak"};
+        this._state.modal={type:"quote"};this._render();
+      } catch(err) {this._toast("Teklif açılamadı",err.message);}
+    }
+
+    _pricedQuoteApi(method,payload) {
+      var host=this;
+      return new Promise(function(resolve,reject) {
+        var reqId="priced_"+Date.now().toString(36)+"_"+Math.random().toString(36).slice(2);
+        var timer;
+        var observer=new MutationObserver(function() {
+          var raw=host.getAttribute("data-pz-portal-api-result");
+          if (!raw) return;
+          var message;
+          try {message=JSON.parse(raw);} catch(e) {return;}
+          if (message.reqId !== reqId) return;
+          clearTimeout(timer);observer.disconnect();
+          if (!message.result || message.result.ok !== true) reject(new Error("Sunucu teklifi doğrulayamadı. Onaylı talep, fiyat kuralı ve üyelik bağlantısı gerekli."));
+          else resolve(message.result.data);
+        });
+        observer.observe(host,{attributes:true,attributeFilter:["data-pz-portal-api-result"]});
+        timer=setTimeout(function(){observer.disconnect();reject(new Error("Sunucu yanıtı alınamadı. Gönderildi sayılmadı."));},15000);
+        var detail={kind:"api",portal:"tedarikci",reqId:reqId,method:method,payload:payload};
+        host.setAttribute("data-pz-portal-api-request",JSON.stringify(detail));
+        host.dispatchEvent(new CustomEvent("pz-portal-api",{detail:detail,bubbles:true,composed:true}));
+      });
+    }
+
+    async _submitPricedQuote(send) {
+      if (this._quoteSending) return;
+      var form=this._state.quoteForm;
+      if (!form) return;
+      var price=String(form.unitPrice || "").replace(",",".");
+      if (!/^\d+(\.\d{1,2})?$/.test(price) || Number(price) <= 0 || !Number.isSafeInteger(Math.round(Number(price)*100))) {
+        this._toast("Fiyat geçersiz","Pozitif ve en fazla iki ondalıklı satış fiyatı girin.");return;
+      }
+      if (form.currency !== "TRY") {this._toast("Para birimi","Bu teklif bağlantısı yalnız TRY destekliyor.");return;}
+      this._quoteSending=true;
+      try {
+        var draft=await this._pricedQuoteApi("getSupplierQuoteDraft",{rfqId:form.requestId,draftId:form.draftId});
+        if (!draft || !draft.draftId || draft.quantity !== Number(form.qty)) throw new Error("Talep adedi / onaylı taslak doğrulanamadı.");
+        var payload={draftId:draft.draftId,quantity:draft.quantity,supplierSalePriceMinor:Math.round(Number(price)*100),expiresAt:draft.expiresAt};
+        var result=await this._pricedQuoteApi("prepareSupplierPricedQuote",payload);
+        if (!result || result.ready !== true || !Number.isSafeInteger(result.commissionRateBps) || !Number.isSafeInteger(result.supplierNetTotalMinor)) throw new Error("Fiyat dökümü doğrulanamadı.");
+        if (this._state.quoteForm !== form) return;
+        var summary="Komisyon %"+(result.commissionRateBps/100)+": "+money(result.commissionTotalMinor/100,"TRY")+" · Net: "+money(result.supplierNetTotalMinor/100,"TRY");
+        if (!send) {this._toast("Sunucudan doğrulanan teklif",summary);return;}
+        var saved=await this._pricedQuoteApi("issueSupplierPricedQuote",payload);
+        if (!saved || saved.persisted !== true || saved.quoteId !== draft.draftId) throw new Error("Teklif kaydı doğrulanamadı.");
+        // Only an acknowledged immutable CMS quote may acquire sent status.
+        form.id=saved.quoteId;form.status="Gönderildi";form.lastActivity="Sunucu kaydı doğrulandı";
+        var index=this._state.quotes.findIndex(function(q){return q.id === saved.quoteId;});
+        var record=Object.assign({},form,{serverPersisted:true,version:saved.version,commissionRateBps:result.commissionRateBps,
+          commissionTotalMinor:result.commissionTotalMinor,supplierNetTotalMinor:result.supplierNetTotalMinor});
+        if (index < 0) this._state.quotes.unshift(record);else this._state.quotes[index]=record;
+        this._persist();this._state.modal=null;this._render();this._toast("Teklif sunucuya kaydedildi",summary);
+      } catch(err) {this._toast("Teklif gönderilmedi",err.message || "Teklif kaydı doğrulanamadı.");}
+      finally {this._quoteSending=false;}
+    }
+
     _saveQuote(status) {
+      if (status !== "Taslak") {
+        this._submitPricedQuote(true);
+        return;
+      }
       var form = this._state.quoteForm;
       if (!form) return;
       if (!form.unitPrice || Number(form.unitPrice) <= 0) {
@@ -3617,6 +3696,9 @@ table.data tr.clickable{cursor:pointer}
       });
       var tabHtml =
         '<div class="eyebrow">Quote Pipeline — teklif hattı</div>' +
+        '<button type="button" class="btn" data-action="load-server-drafts">Onaylı Sunucu Taleplerini Getir</button>' +
+        (this._serverDrafts ? this._serverDrafts.items.map(function(d) {return '<button type="button" class="btn" data-action="open-server-draft" data-draft="'+esc(d.draftId)+'" data-rfq="'+esc(d.rfqId)+'">Talep '+esc(d.rfqId)+' · Teklif Hazırla</button>';}).join("") +
+          (this._serverDrafts.hasMore ? '<button type="button" class="btn" data-action="load-server-drafts" data-offset="'+(this._serverDrafts.offset+20)+'">Sonraki Talepler</button>':'') : '') +
         '<p class="muted" style="margin:6px 0 12px">Gerçek durumlar: Taslak, Gönderildi, Revizyon, Kabul Edildi. Gönderilmiş teklif kilitlidir.</p>' +
         '<div class="tabs">' +
         tabs
@@ -4168,7 +4250,7 @@ table.data tr.clickable{cursor:pointer}
         '<form id="pz-quote-form"><div class="grid-2">' +
         this._qField("Talep edilen adet", "qty", f.qty, "number") +
         this._qField("Stokta bulunan adet", "stockQty", f.stockQty, "number") +
-        this._qField("Birim fiyat", "unitPrice", f.unitPrice, "number") +
+        this._qField("Birim satış fiyatı (vergi dahil)", "unitPrice", f.unitPrice, "number") +
         '<div class="field"><label for="qf-currency">Para birimi</label><select id="qf-currency" data-quote-field="currency">' +
         ["TRY", "USD", "EUR"]
           .map(function (c) {
@@ -4207,11 +4289,12 @@ table.data tr.clickable{cursor:pointer}
         esc(money(t.total, f.currency)) +
         "</span></div></div>" +
         '<div class="apply-actions">' +
-        '<button type="button" class="btn" data-action="save-quote-draft">Taslak Kaydet</button>' +
+        '<p role="status">Komisyon sunucuda hesaplanır. Önizle ile komisyon ve net tutarı kontrol edin. Kargo onaylı teklif kuralından alınır.</p>' +
+        '<button type="button" class="btn" data-action="save-quote-draft">Yerel Taslak Kaydet</button>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap;flex-direction:column;align-items:flex-end">' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
         '<button type="button" class="btn" data-action="preview-quote">Önizle</button>' +
-        (this._supplierEligibility().docsOk && this._supplierEligibility().profileOk
+        (f.serverApproved === true || this._supplierEligibility().docsOk && this._supplierEligibility().profileOk
           ? '<button type="button" class="btn primary" data-action="send-quote">Teklifi Gönder</button>'
           : '<button type="button" class="btn primary" disabled aria-disabled="true">Teklifi Gönder</button>') +
         "</div>" +
