@@ -1,4 +1,4 @@
-const CACHE = "pz-mobile-shell-v9-pricing";
+const CACHE = "pz-mobile-shell-v10-pricing-readable";
 const SHELL = [
   "/",
   "/app.js",
