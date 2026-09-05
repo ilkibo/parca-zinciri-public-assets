@@ -1,10 +1,11 @@
-const CACHE = "pz-mobile-shell-v7-upload-video10";
+const CACHE = "pz-mobile-shell-v8-remember";
 const SHELL = [
   "/",
   "/app.js",
   "/live-api.js",
   "/upload.js",
   "/video.js",
+  "/session.js",
   "/style.css",
   "/contract.js",
   "/drafts.js",

@@ -8,7 +8,7 @@ import {
   videoTypes,
 } from "./contract.js";
 import { loadDraft, saveDraft, clearDraft } from "./drafts.js";
-import { liveApi, liveUpload } from "./live-api.js";
+import { liveApi, liveUpload, hasRememberedSession } from "./live-api.js";
 import { uploadFile, uploadPercent } from "./upload.js";
 import { readVideoDuration } from "./video.js";
 let liveMode = !['localhost','127.0.0.1'].includes(location.hostname);
@@ -104,7 +104,7 @@ function showLogin() {
   nav.innerHTML = "";
   document.querySelector("#identity").textContent = "";
   if(liveMode){
-    app.innerHTML=`<div class="narrow"><p class="eyebrow">Parça Zinciri Mobil</p><h1>Hesabınıza giriş yapın.</h1><p class="sub">Web panelindeki hesabınızla ürünlerinizi fotoğraf, video ve fiyat bilgisiyle gönderin.</p><form id="live-login" class="panel">${select('portal','Giriş türü',{tedarikci:'Tedarikçi',yonetici:'Yönetim'})}${input('email','E-posta','email','autocomplete="username"')}${input('password','Şifre','password','autocomplete="current-password"')}<button class="primary" type="submit">Giriş yap</button><p class="help">Oturum bilgisi yalnızca bellekte tutulur. Sayfayı yeniden açtığınızda tekrar giriş yapmanız gerekir; cihaz taslağınız korunur.</p></form></div>`;
+    app.innerHTML=`<div class="narrow"><p class="eyebrow">Parça Zinciri Mobil</p><h1>Hesabınıza giriş yapın.</h1><p class="sub">Web panelindeki hesabınızla ürünlerinizi fotoğraf, video ve fiyat bilgisiyle gönderin.</p><form id="live-login" class="panel">${select('portal','Giriş türü',{tedarikci:'Tedarikçi',yonetici:'Yönetim'})}${input('email','E-posta','email','autocomplete="username"')}${input('password','Şifre','password','autocomplete="current-password"')}<button class="primary" type="submit">Giriş yap</button><p class="help">Girişiniz bu cihazda 90 gün hatırlanır; şifreniz saklanmaz. Ortak cihaz kullanıyorsanız işiniz bitince Çıkış düğmesine basın.</p></form></div>`;
     const form=document.querySelector('#live-login');form.elements.portal.value='tedarikci';
     form.onsubmit=async e=>{e.preventDefault();const b=form.querySelector('button');b.disabled=true;try{await api('login',Object.fromEntries(new FormData(form)));form.elements.password.value='';message('');await boot();}catch(err){message(err.message,true);}finally{b.disabled=false;}};
     return;
@@ -138,6 +138,13 @@ async function boot() {
     if (identity.role === "platform_admin") suppliers = await api("suppliers");
     render("products");
   } catch (e) {
+    if(liveMode && e.status!==401 && hasRememberedSession()){
+      cleanup();identity=null;nav.innerHTML='';document.querySelector('#identity').textContent='';
+      app.innerHTML='<div class="narrow panel"><h1>Bağlantı bekleniyor.</h1><p>Oturumunuz bu cihazda kayıtlı. İnternet bağlantısı geldiğinde şifre girmeden devam edebilirsiniz.</p><button id="retry-session" class="primary">Tekrar bağlan</button><button id="forget-session" class="secondary">Bu cihazdan çıkış yap</button></div>';
+      document.querySelector('#retry-session').onclick=async e=>{e.target.disabled=true;message('');await boot();};
+      document.querySelector('#forget-session').onclick=async()=>{await api('logout',{});message('');showLogin();};
+      return;
+    }
     showLogin();
     if (e.status !== 401)
       message(

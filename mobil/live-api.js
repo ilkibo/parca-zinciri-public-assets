@@ -1,17 +1,18 @@
 import {uploadFile,confirmUpload} from './upload.js';
+import {createSessionClient} from './session.js';
 const SITE='https://www.parcazinciri.com/_functions/';
-let token='';
-async function rpc(method,payload={}) {
-  const body=method==='login'?{method,...payload}:{method,payload,portalAccessToken:token};
+async function request(body) {
   const response=await fetch(SITE+'mobileRpc',{method:'POST',headers:{'Content-Type':'application/json'},credentials:'omit',body:JSON.stringify(body),signal:AbortSignal.timeout(30000)});
   const result=await response.json();
-  if(!response.ok||result.ok!==true){const e=new Error(result.error||'Wix işlemi tamamlanamadı.');e.status=response.status;e.code=result.code;e.field=result.field;if(response.status===401)token='';throw e;}
+  if(!response.ok||result.ok!==true){const e=new Error(result.error||'Wix işlemi tamamlanamadı.');e.status=response.status;e.code=result.code;e.field=result.field;throw e;}
   return result.data;
 }
+const session=createSessionClient({request,storage:{getItem:key=>localStorage.getItem(key),setItem:(key,value)=>localStorage.setItem(key,value),removeItem:key=>localStorage.removeItem(key)}});
+const rpc=(method,payload)=>session.call(method,payload);
+export const hasRememberedSession=()=>session.hasRememberedSession();
 export async function liveApi(route,body) {
-  if(route==='login'){const r=await rpc('login',body);token=r.portalAccessToken;return {ok:true};}
-  if(!token){const e=new Error('Mevcut tedarikçi hesabınızla giriş yapın.');e.status=401;throw e;}
-  if(route==='logout'){try{return await rpc('logout');}finally{token='';}}
+  if(route==='login')return session.login(body);
+  if(route==='logout')return session.logout();
   if(route==='products'&&body)return rpc('create',body);
   if(route==='products'){
     const items=[];let offset=0;
