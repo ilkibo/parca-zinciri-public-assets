@@ -1,3 +1,4 @@
+import {uploadFile,confirmUpload} from './upload.js';
 const SITE='https://www.parcazinciri.com/_functions/';
 let token='';
 async function rpc(method,payload={}) {
@@ -20,20 +21,21 @@ export async function liveApi(route,body) {
   if(route.startsWith('products/')){const parts=route.split('/');return rpc(parts[2]==='approve'?'approve':'product',{listingKey:parts[1]});}
   return rpc(route,body||{});
 }
-export async function liveUpload(media,onSaved) {
+export async function liveUpload(media,onSaved,onProgress=()=>{}) {
+  onProgress({phase:'preparing',loaded:media.upload?.fileId?media.file.size:0});
   let uploadUrl;
   if(!media.upload?.fileId){const started=await rpc('uploadStart',{name:media.file.name,mime:media.file.type,size:media.file.size});uploadUrl=started.uploadUrl;delete started.uploadUrl;media.upload=started;}
   if(!media.upload.fileId){
     const url=new URL(uploadUrl);
     if(url.protocol!=='https:'||!(url.hostname.endsWith('.wix.com')||url.hostname.endsWith('.wixapis.com')||url.hostname.endsWith('.wixmp.com')))throw new Error('Yükleme adresi doğrulanamadı.');
     url.searchParams.set('filename',media.upload.fileName);
-    const res=await fetch(url,{method:'PUT',headers:{'Content-Type':media.file.type},body:media.file,credentials:'omit',signal:AbortSignal.timeout(180000)});
-    if(!res.ok)throw new Error('Dosya yüklenemedi. Tekrar deneyin.');
-    const result=await res.json();media.upload.fileId=result.file?.id||result.file?._id;
+    const result=await uploadFile(url,media.file,{headers:{'Content-Type':media.file.type},onProgress:(loaded,total)=>onProgress({phase:'uploading',loaded:total?loaded/total*media.file.size:0})});
+    media.upload.fileId=result.file?.id||result.file?._id;
     if(!media.upload.fileId)throw new Error('Yüklenen dosyanın kimliği alınamadı.');
     // A signed upload URL is a temporary credential; don't retain it after upload.
     delete media.upload.uploadUrl;
     await onSaved();
   }
-  return rpc('uploadConfirm',{ticketId:media.upload.ticketId,fileId:media.upload.fileId});
+  onProgress({phase:'processing',loaded:media.file.size});
+  return confirmUpload(()=>rpc('uploadConfirm',{ticketId:media.upload.ticketId,fileId:media.upload.fileId}),{onWaiting:()=>onProgress({phase:'processing',loaded:media.file.size})});
 }

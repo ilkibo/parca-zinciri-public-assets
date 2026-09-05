@@ -9,6 +9,8 @@ import {
 } from "./contract.js";
 import { loadDraft, saveDraft, clearDraft } from "./drafts.js";
 import { liveApi, liveUpload } from "./live-api.js";
+import { uploadFile, uploadPercent } from "./upload.js";
+import { readVideoDuration } from "./video.js";
 let liveMode = !['localhost','127.0.0.1'].includes(location.hostname);
 let machineCatalog = null;
 const app = document.querySelector("#app"),
@@ -300,7 +302,7 @@ async function formView() {
     message("Cihazdaki taslak okunamadı. Eski taslağın üzerine yazılmadı; tarayıcı depolama izinlerini kontrol edin.", true);
     view = "products"; navigation(); productsView(); return;
   }
-  app.innerHTML = `<p class="eyebrow">Parça başında ürün girişi</p><h1>Yeni ürün.</h1><p class="sub">Görselleri ekleyin, bilgileri tamamlayın, onaya gönderin.</p><form id="product-form"><section class="panel"><h2>1. Fotoğraf ve video</h2><div class="media-buttons"><label class="media-button">＋ Fotoğraf çek<input id="camera" type="file" accept="image/*" capture="environment"></label><label class="media-button">Galeri<input id="gallery" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><label class="media-button">＋ Video çek<input id="video" type="file" accept="video/*" capture="environment"></label></div><p class="help">1–6 fotoğraf, isteğe bağlı 1 video. Fotoğraf en fazla 10 MB, video 50 MB. JPEG, PNG, WebP; MP4, MOV veya WebM.</p><div id="media" class="media-grid"></div></section><section class="panel"><h2>2. Ürün bilgileri</h2>${select("listingType", "İlan türü", { part: "Parça", equipment: "Ekipman", machine: "Makine" })}<div data-kind="part" class="fields">${input("partName", "Parça adı", "text", 'maxlength="200" class="full"')}${select("partOriginType", "Parça türü", { original: "Orijinal", aftermarket: "Yan sanayi" })}${select("partCondition", "Parça durumu", conditions)}</div><div data-kind="equipment" class="fields">${select("equipmentType", "Ekipman türü", equipmentTypes)}${select("equipmentCondition", "Ekipman durumu", { new_original: "Sıfır, orijinal", original_reconditioned: "Orijinal, revizyonlu" })}${textarea("equipmentWorkDescription", "Revizyonda yapılan işlemler")}</div><div data-kind="machine" class="fields">${input("modelYear", "Model yılı", "number", `min="1900" max="${new Date().getFullYear()}"`)}${textarea("machineModificationSummary", "Yapılan işlemler / değişiklik özeti", true)}</div>${input("productCode", "Ürün / stok kodu", "text", 'maxlength="80" placeholder="Mevcut kod veya kendi stok kodunuz" autocomplete="off"')}<p class="help">Parçanın mevcut kodunu veya kendiniz belirlediğiniz stok kodunu girebilirsiniz. Kod girmeyecekseniz Diğer seçeneğini kullanın.</p><label class="check"><input name="productCodeUnknown" type="checkbox"><span><strong>Diğer</strong> — ürün/stok kodu elimde yok</span></label><div class="fields">${input("stockQuantity", "Stok adedi", "number", 'min="1" step="1" inputmode="numeric"')}${input("priceEur", "Birim fiyat (€)", "text", 'inputmode="decimal" placeholder="0,00"')}</div></section><section class="panel"><h2>3. Makine ve uyumluluk</h2><div class="fields">${select("machineType", "Makine türü", machineTypes)}${input("machineBrandName", "Makine markası")}${input("machineModelName", "Makine modeli")}${input("machineSerialNumber", "Makine seri numarası", "text", 'maxlength="80"')}</div><div data-kind="part">${input("oem", "OEM / referans numarası", "text", 'maxlength="80"')}<label class="check"><input name="oemUnknown" type="checkbox"><span>OEM / referans numarası bilinmiyor</span></label></div>${textarea("description", "Açıklama (isteğe bağlı)")}</section><p class="note">Ürün, hesabınızdaki <strong>${esc(identity.sellerNumber)}</strong> satıcı numarasına kaydedilir. “Diğer” seçimi yeni bir ürün kodu üretmez.</p><p id="draft-state" class="help">${draft.media.length ? "Cihazdaki taslak açıldı." : "Form ve dosyalar bu hesap için cihazda taslak olarak saklanır."}</p><progress id="upload-progress" max="100" value="0" hidden></progress><div class="actions"><button id="save-draft" class="secondary" type="button">Taslağı cihazda sakla</button><button id="submit" class="primary" type="submit">Onaya gönder</button></div></form>`;
+  app.innerHTML = `<p class="eyebrow">Parça başında ürün girişi</p><h1>Yeni ürün.</h1><p class="sub">Görselleri ekleyin, bilgileri tamamlayın, onaya gönderin.</p><form id="product-form"><section class="panel"><h2>1. Fotoğraf ve video</h2><div class="media-buttons"><label class="media-button">＋ Fotoğraf çek<input id="camera" type="file" accept="image/*" capture="environment"></label><label class="media-button">Galeri<input id="gallery" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><label class="media-button">＋ Video çek<input id="video" type="file" accept="video/*" capture="environment"></label></div><p class="help">1–6 fotoğraf, isteğe bağlı 1 video. Video en fazla 10 saniye olmalı; daha uzunu yüklenmez. Fotoğraf en fazla 10 MB, video 50 MB. JPEG, PNG, WebP; MP4, MOV veya WebM.</p><div id="media" class="media-grid"></div></section><section class="panel"><h2>2. Ürün bilgileri</h2>${select("listingType", "İlan türü", { part: "Parça", equipment: "Ekipman", machine: "Makine" })}<div data-kind="part" class="fields">${input("partName", "Parça adı", "text", 'maxlength="200" class="full"')}${select("partOriginType", "Parça türü", { original: "Orijinal", aftermarket: "Yan sanayi" })}${select("partCondition", "Parça durumu", conditions)}</div><div data-kind="equipment" class="fields">${select("equipmentType", "Ekipman türü", equipmentTypes)}${select("equipmentCondition", "Ekipman durumu", { new_original: "Sıfır, orijinal", original_reconditioned: "Orijinal, revizyonlu" })}${textarea("equipmentWorkDescription", "Revizyonda yapılan işlemler")}</div><div data-kind="machine" class="fields">${input("modelYear", "Model yılı", "number", `min="1900" max="${new Date().getFullYear()}"`)}${textarea("machineModificationSummary", "Yapılan işlemler / değişiklik özeti", true)}</div>${input("productCode", "Ürün / stok kodu", "text", 'maxlength="80" placeholder="Mevcut kod veya kendi stok kodunuz" autocomplete="off"')}<p class="help">Parçanın mevcut kodunu veya kendiniz belirlediğiniz stok kodunu girebilirsiniz. Kod girmeyecekseniz Diğer seçeneğini kullanın.</p><label class="check"><input name="productCodeUnknown" type="checkbox"><span><strong>Diğer</strong> — ürün/stok kodu elimde yok</span></label><div class="fields">${input("stockQuantity", "Stok adedi", "number", 'min="1" step="1" inputmode="numeric"')}${input("priceEur", "Birim fiyat (€)", "text", 'inputmode="decimal" placeholder="0,00"')}</div></section><section class="panel"><h2>3. Makine ve uyumluluk</h2><div class="fields">${select("machineType", "Makine türü", machineTypes)}${input("machineBrandName", "Makine markası")}${input("machineModelName", "Makine modeli")}${input("machineSerialNumber", "Makine seri numarası", "text", 'maxlength="80"')}</div><div data-kind="part">${input("oem", "OEM / referans numarası", "text", 'maxlength="80"')}<label class="check"><input name="oemUnknown" type="checkbox"><span>OEM / referans numarası bilinmiyor</span></label></div>${textarea("description", "Açıklama (isteğe bağlı)")}</section><p class="note">Ürün, hesabınızdaki <strong>${esc(identity.sellerNumber)}</strong> satıcı numarasına kaydedilir. “Diğer” seçimi yeni bir ürün kodu üretmez.</p><p id="draft-state" class="help">${draft.media.length ? "Cihazdaki taslak açıldı." : "Form ve dosyalar bu hesap için cihazda taslak olarak saklanır."}</p><section id="upload-status" class="upload-status" hidden aria-label="Ürün gönderim durumu"><div class="upload-heading"><strong id="upload-stage" role="status" aria-live="polite">Gönderim hazırlanıyor</strong><strong id="upload-percent">%0</strong></div><progress id="upload-progress" aria-label="Toplam gönderim ilerlemesi" max="100" value="0"></progress><p id="upload-file"></p><p id="upload-hint"></p></section><div class="actions"><button id="save-draft" class="secondary" type="button">Taslağı cihazda sakla</button><button id="submit" class="primary" type="submit">Onaya gönder</button></div></form>`;
   const form = document.querySelector("#product-form");
   if(liveMode && machineCatalog){
     const brand=form.elements.machineBrandName.closest('label'),model=form.elements.machineModelName.closest('label');
@@ -379,7 +381,8 @@ async function formView() {
                 ? "En fazla 6 fotoğraf ekleyebilirsiniz."
                 : "En fazla bir video ekleyebilirsiniz.",
             );
-          draft.media.push({ localId: crypto.randomUUID(), file });
+          const durationSeconds=isImage?undefined:await readVideoDuration(file);
+          draft.media.push({ localId: crypto.randomUUID(), file, durationSeconds });
         }
         await persist();
       } catch (e) {
@@ -401,6 +404,7 @@ async function formView() {
   mediaView();
 }
 function collect() {
+  if (busy) return; // Disabled upload controls must never overwrite the saved fields.
   const form = document.querySelector("#product-form");
   if (!form) return;
   draft.fields = Object.fromEntries(new FormData(form));
@@ -454,89 +458,100 @@ async function submit(event) {
   if (busy) return;
   collect();
   try {
-    validateProduct(
-      draft.fields,
-      draft.media.map((m) => ({ mime: m.file.type, size: m.file.size })),
-    );
-    await persist();
-  } catch (e) {
-    message(e.message, true);
-    document
-      .querySelector("#product-form")
-      .elements.namedItem(e.field)
-      ?.focus();
+    validateProduct(draft.fields,draft.media.map(m=>({mime:m.file.type,size:m.file.size})));
+  } catch(e) {
+    message(e.message,true);
+    document.querySelector("#product-form").elements.namedItem(e.field)?.focus();
     return;
   }
-  if (!navigator.onLine) {
-    message(
-      "İnternet bağlantısı yok. Taslak cihazda saklandı; bağlantı gelince tekrar gönderin.",
-      true,
-    );
-    return;
+  // Snapshot before locking the form; background saves cannot change this request.
+  const submissionFields=structuredClone(draft.fields);
+  const submissionKey=draft.idempotencyKey;
+  busy=true;
+  const form=document.querySelector("#product-form");
+  const controls=[...form.querySelectorAll("input,select,textarea,button")];
+  const disabled=controls.map(el=>el.disabled);
+  controls.forEach(el=>el.disabled=true);
+  document.activeElement?.blur();
+  const panel=document.querySelector("#upload-status"),progress=document.querySelector("#upload-progress");
+  const percent=document.querySelector("#upload-percent"),stage=document.querySelector("#upload-stage");
+  const fileLabel=document.querySelector("#upload-file"),hint=document.querySelector("#upload-hint");
+  const submitButton=document.querySelector("#submit");
+  panel.hidden=false;panel.classList.remove("error");form.setAttribute("aria-busy","true");
+  const started=Date.now();let changedAt=started,currentPercent=0,currentPhase="",failed=false,draftSaved=false;
+  const labels={preparing:"Gönderim hazırlanıyor",uploading:"Dosya yükleniyor",processing:"Dosya işleniyor",saving:"Ürün kaydediliyor",complete:"Onaya gönderildi"};
+  function updateHint(){
+    const seconds=Math.floor((Date.now()-started)/1000);
+    const waiting=Math.floor((Date.now()-changedAt)/1000);
+    const detail=currentPhase==="processing"?"Yükleme alındı; sunucu dosyayı hazırlıyor.":
+      currentPhase==="saving"?"Dosyalar hazır; ürün kaydının onayı bekleniyor.":
+      waiting>=12?"Henüz yeni ilerleme bilgisi gelmedi. Bağlantı yavaş olabilir; işlem sonucu bekleniyor.":
+      "Gönderim tamamlanana kadar uygulamayı açık tutun.";
+    hint.textContent=detail+" · "+seconds+" sn";
   }
-  busy = true;
-  const form = document.querySelector("#product-form");
-  const controls = [...form.querySelectorAll("input,select,textarea,button")];
-  const disabled = controls.map((el) => el.disabled);
-  controls.forEach((el) => (el.disabled = true));
-  const progress = document.querySelector("#upload-progress");
-  progress.hidden = false;
+  function update(value,phase,file=""){
+    const next=Math.max(currentPercent,Math.min(100,Math.floor(value)));
+    if(next!==currentPercent||phase!==currentPhase)changedAt=Date.now();
+    currentPercent=next;currentPhase=phase;
+    progress.value=next;percent.textContent="%"+next;stage.textContent=labels[phase];
+    fileLabel.textContent=file;submitButton.textContent="Gönderiliyor · %"+next;updateHint();
+  }
+  update(0,"preparing");
+  panel.scrollIntoView({block:"center",behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"instant":"smooth"});
+  const timer=setInterval(updateHint,1000);
   try {
-    for (let i = 0; i < draft.media.length; i++) {
-      const media = draft.media[i];
-      if (!media.remote) {
+    await persist();draftSaved=true;
+    if(!navigator.onLine)throw new Error("İnternet bağlantısı yok. Bağlantı gelince tekrar gönderin.");
+    // Recheck restored drafts too, before uploading any bytes.
+    for(const media of draft.media){
+      if(videoTypes.includes(media.file.type)){
+        update(0,"preparing","Video süresi kontrol ediliyor · En fazla 10 saniye");
+        media.durationSeconds=await readVideoDuration(media.file);
+      }
+    }
+    const total=draft.media.reduce((sum,m)=>sum+m.file.size,0);
+    let finished=0;
+    for(let i=0;i<draft.media.length;i++){
+      const media=draft.media[i],kind=imageTypes.includes(media.file.type)?"Fotoğraf":"Video";
+      const label=kind+" · "+(i+1)+"/"+draft.media.length+" · "+media.file.name;
+      const report=({phase,loaded=0})=>update(uploadPercent(finished+loaded,total),phase,label);
+      if(!media.remote){
         if(liveMode){
-          media.remote=await liveUpload(media,()=>saveDraft(draftKey(),structuredClone(draft)));
+          media.remote=await liveUpload(media,()=>saveDraft(draftKey(),structuredClone(draft)),report);
           await saveDraft(draftKey(),structuredClone(draft));
         }else{
-        const response = await fetch("/api/media", {
-          method: "POST",
-          headers: {
-            "Content-Type": media.file.type,
-            "X-File-Name": encodeURIComponent(media.file.name),
-          },
-          body: media.file,
-        });
-        const result = await response.json();
-        if (!response.ok)
-          throw new Error(result.error || "Yükleme tamamlanamadı.");
-        media.remote = result;
-        await saveDraft(draftKey(), structuredClone(draft));
+          report({phase:"uploading"});
+          const result=await uploadFile("/api/media",media.file,{method:"POST",headers:{"Content-Type":media.file.type,"X-File-Name":encodeURIComponent(media.file.name)},onProgress:(loaded,total)=>report({phase:"uploading",loaded:total?loaded/total*media.file.size:0})});
+          media.remote=result;
+          await saveDraft(draftKey(),structuredClone(draft));
         }
       }
-      progress.value = Math.round(((i + 1) / draft.media.length) * 90);
-      message(`Dosyalar yükleniyor: ${i + 1}/${draft.media.length}`);
+      finished+=media.file.size;
+      update(uploadPercent(finished,total),"processing",label);
     }
-    const saved = await api("products", {
-      ...draft.fields,
-      mediaIds: draft.media.map((m) => m.remote.id),
-      idempotencyKey: draft.idempotencyKey,
-    });
-    progress.value = 100;
-    // A local storage cleanup failure must not turn a confirmed server save into
-    // a false upload failure. Reopening this draft safely retries the same key.
-    let cleanupFailed = false;
-    await clearDraft(draftKey()).catch(() => { cleanupFailed = true; });
-    draft = null;
-    busy = false;
-    products = products
-      .filter((p) => p.listingKey !== saved.listingKey)
-      .concat(saved);
-    message((liveMode?"Ürün gerçek tedarikçi panelinize kaydedildi ve yönetim onayına gönderildi.":"Ürün yerel demoya kaydedildi ve yönetim onayına gönderildi.") +
-      (cleanupFailed ? " Cihazdaki eski taslak temizlenemedi; yeniden gönderilse de aynı ürün kaydı kullanılacak." : ""));
-    render("products");
-  } catch (e) {
-    message(
-      "Gönderim tamamlanamadı: " +
-        e.message +
-        " Taslak korundu; yeniden gönderebilirsiniz.",
-      true,
-    );
+    update(95,"saving","Fotoğraf ve video yüklemeleri tamamlandı.");
+    const saved=await api("products",{...submissionFields,mediaIds:draft.media.map(m=>m.remote.id),idempotencyKey:submissionKey});
+    update(100,"complete");
+    let cleanupFailed=false;
+    await clearDraft(draftKey()).catch(()=>{cleanupFailed=true;});
+    draft=null;busy=false;
+    products=products.filter(p=>p.listingKey!==saved.listingKey).concat(saved);
+    message("%100 · "+(liveMode?"Ürün tedarikçi panelinize kaydedildi ve yönetim onayına gönderildi.":"Ürün yerel demoda yönetim onayına gönderildi.")+
+      (cleanupFailed?" Cihaz taslağı temizlenemedi; aynı taslağın tekrar gönderimi aynı ürün kaydını kullanır.":""));
+    render("products");window.scrollTo({top:0,behavior:"instant"});
+  } catch(e) {
+    failed=true;panel.classList.add("error");
+    stage.textContent="Gönderim tamamlanamadı";
+    hint.textContent=e.message+(draftSaved?" Taslak korundu. Tekrar gönder düğmesini kullanabilirsiniz.":" Cihaz taslağı kaydedilemedi; form açık tutuldu.");
+    message(hint.textContent,true);
   } finally {
-    busy = false;
-    controls.forEach((el, i) => (el.disabled = disabled[i]));
+    clearInterval(timer);busy=false;
+    form.setAttribute("aria-busy","false");
+    controls.forEach((el,i)=>el.disabled=disabled[i]);
+    submitButton.textContent=failed?"Tekrar gönder":"Onaya gönder";
   }
 }
+
 document.addEventListener("visibilitychange", () => {
   if (document.hidden && view === "form") persist().catch(() => {});
   else if (!document.hidden && identity && view === "products") refresh();
