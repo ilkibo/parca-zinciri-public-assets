@@ -78,7 +78,7 @@ export function validateProduct(input, media = []) {
   if (/^(diğer|diger)$/i.test(code))
     fail("productCode", "Kodunuz yoksa Diğer kutusunu kullanın.");
   if (/[<>]|https?:\/\/|@/i.test(code))
-    fail("productCode", "Mevcut ürün kodunu kontrol edin.");
+    fail("productCode", "Ürün / stok kodunu kontrol edin.");
   // No fallback to a supplier SKU, serial number, title or generated identifier.
   if (input.listingType === "part") {
     str("partName");
