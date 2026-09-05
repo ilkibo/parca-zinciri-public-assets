@@ -17,6 +17,7 @@ export async function liveApi(route,body) {
   if(route==='products'&&body)return rpc('create',body);
   if(route==='products')return (await rpc('products',{})).items;
   if(route==='productPage')return rpc('products',body||{});
+  if(route==='supplierPage')return rpc('suppliers',{...body,paged:true});
   if(route.startsWith('products/')){const parts=route.split('/');return rpc(parts[2]==='approve'?'approve':'product',{listingKey:parts[1]});}
   return rpc(route,body||{});
 }

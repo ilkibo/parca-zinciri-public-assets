@@ -214,7 +214,7 @@ async function render(next, listingKey = '') {
   navigation();
   if(next==='notifications')return mountNotifications(app,{api,identity,onOpen:key=>detail(key)});
   if (next === "form") return formView();
-  if (next === "suppliers") {suppliers=await api('suppliers');return suppliersView();}
+  if (next === "suppliers") {if(liveMode){const page=await api('supplierPage',{});suppliers=page.items;return suppliersView(page.nextOffset);}suppliers=await api('suppliers');return suppliersView();}
   productsView(listingKey);
   if(liveMode&&identity.role!=='platform_admin')await loadProducts();
 }
@@ -294,8 +294,9 @@ async function refresh() {
     message(e.message, true);
   }
 }
-function suppliersView() {
-  app.innerHTML = `<p class="eyebrow">Yönetim paneli</p><h1>Tedarikçiler.</h1><p class="sub">Her firma, sunucunun atadığı sabit bir satıcı numarasıyla tanımlanır.</p><section class="panel">${suppliers.map((s) => `<div class="supplier"><div><strong>${esc(s.companyName)}</strong><p>${products.filter((p) => p.supplierKey === s.supplierKey).length} ürün</p></div><strong>${esc(s.sellerNumber)}</strong></div>`).join("")}</section>`;
+function suppliersView(next=null) {
+  app.innerHTML = `<p class="eyebrow">Yönetim paneli</p><h1>Tedarikçiler.</h1><p class="sub">Her firma, sunucunun atadığı sabit bir satıcı numarasıyla tanımlanır.</p><section class="panel">${suppliers.map((s) => `<div class="supplier"><div><strong>${esc(s.companyName)}</strong><p>${liveMode?s.listingCount:products.filter((p) => p.supplierKey === s.supplierKey).length} ürün</p></div><strong>${esc(s.sellerNumber)}</strong></div>`).join("")}</section>${next!==null?'<button id="more-suppliers" class="secondary">Daha fazla tedarikçi</button>':''}`;
+  document.querySelector('#more-suppliers')?.addEventListener('click',async e=>{e.target.disabled=true;try{const page=await api('supplierPage',{offset:next});suppliers.push(...page.items);suppliersView(page.nextOffset);}catch(err){message(err.message,true);e.target.disabled=false;}});
 }
 async function detail(id) {
   if (liveMode && identity.role === "platform_admin") {cleanup();view="detail";navigation();app.innerHTML='<div id="mobile-review"></div>';await mountListingReview(app.querySelector("#mobile-review"), {api,listingKey:id,onBack:()=>render("products")});return;}
