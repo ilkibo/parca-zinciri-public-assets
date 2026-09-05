@@ -12,13 +12,11 @@ const rpc=(method,payload)=>session.call(method,payload);
 export const hasRememberedSession=()=>session.hasRememberedSession();
 export async function liveApi(route,body) {
   if(route==='login')return session.login(body);
+  if(route==='resetPassword')return request({method:'resetPassword',email:body.email});
   if(route==='logout')return session.logout();
   if(route==='products'&&body)return rpc('create',body);
-  if(route==='products'){
-    const items=[];let offset=0;
-    do {const page=await rpc('products',{offset});items.push(...page.items);offset=page.nextOffset;}while(offset!==null);
-    return items;
-  }
+  if(route==='products')return (await rpc('products',{})).items;
+  if(route==='productPage')return rpc('products',body||{});
   if(route.startsWith('products/')){const parts=route.split('/');return rpc(parts[2]==='approve'?'approve':'product',{listingKey:parts[1]});}
   return rpc(route,body||{});
 }

@@ -14,6 +14,10 @@ import { loadDraft, saveDraft, clearDraft } from "./drafts.js";
 import { liveApi, liveUpload, hasRememberedSession } from "./live-api.js";
 import { uploadFile, uploadPercent } from "./upload.js";
 import { readVideoDuration } from "./video.js";
+import {recordVideo} from './recorder.js';
+import {mountNotifications,checkNotifications} from './notifications.js';
+let editingKey='', editSeed=null, nextOffset=null, listSearch='', listStatus='', offlineEditor=false;
+let listRequest=0;
 let liveMode = !['localhost','127.0.0.1'].includes(location.hostname);
 let machineCatalog = null;
 const app = document.querySelector("#app"),
@@ -38,7 +42,7 @@ const money = (value) =>
   new Intl.NumberFormat("tr-TR", { style: "currency", currency: "EUR" }).format(
     value,
   );
-const draftKey = () => (liveMode?'wix:':'demo:') + identity.memberId + ":" + identity.supplierKey;
+const draftKey = () => (liveMode?'wix:':'demo:') + identity.memberId + ":" + identity.supplierKey + (editingKey?':edit:'+editingKey:'');
 function message(text, error = false) {
   const box = document.querySelector("#message");
   box.textContent = text;
@@ -110,6 +114,8 @@ function showLogin() {
   if(liveMode){
     app.innerHTML=`<div class="narrow"><p class="eyebrow">Parça Zinciri Mobil</p><h1>Hesabınıza giriş yapın.</h1><p class="sub">Web panelindeki hesabınızla ürünlerinizi fotoğraf, video ve fiyat bilgisiyle gönderin.</p><form id="live-login" class="panel">${select('portal','Giriş türü',{tedarikci:'Tedarikçi',yonetici:'Yönetim'})}${input('email','E-posta','email','autocomplete="username"')}${input('password','Şifre','password','autocomplete="current-password"')}<button class="primary" type="submit">Giriş yap</button><p class="help">Girişiniz bu cihazda 90 gün hatırlanır; şifreniz saklanmaz. Ortak cihaz kullanıyorsanız işiniz bitince Çıkış düğmesine basın.</p></form></div>`;
     const form=document.querySelector('#live-login');form.elements.portal.value='tedarikci';
+    form.insertAdjacentHTML('beforeend','<button id="forgot-password" class="secondary" type="button">Şifremi unuttum</button>');
+    form.querySelector('#forgot-password').onclick=async event=>{const email=form.elements.email;if(!email.reportValidity())return;event.target.disabled=true;try{const result=await api('resetPassword',{email:email.value});message(result.message);}catch(e){message(e.message,true);}finally{event.target.disabled=false;}};
     form.onsubmit=async e=>{e.preventDefault();const b=form.querySelector('button');b.disabled=true;try{await api('login',Object.fromEntries(new FormData(form)));form.elements.password.value='';message('');await boot();}catch(err){message(err.message,true);}finally{b.disabled=false;}};
     return;
   }
@@ -130,16 +136,19 @@ function showLogin() {
 }
 async function boot() {
   try {
-    const config = ['localhost','127.0.0.1'].includes(location.hostname)?await api('config'):{mode:'live'};
+    const config = ['localhost','127.0.0.1'].includes(location.hostname)&&navigator.onLine?await api('config').catch(e=>{if(hasRememberedSession())return {mode:'live'};throw e;}):{mode:'live'};
     liveMode=config.mode==='live';
     document.querySelector('.demo-banner').textContent=liveMode?'PARÇA ZİNCİRİ · Canlı tedarikçi bağlantısı':'YEREL DEMO · Gerçek hesap ve parcazinciri.com bağlantısı yok';
     testAccounts = config.testAccounts || [];
+    if(!navigator.onLine)throw Object.assign(new Error('Offline'),{status:0});
     identity = await api("session");
+    offlineEditor=false;
     if(liveMode && identity.role!=='platform_admin')machineCatalog=await api('catalog');
     document.querySelector("#identity").innerHTML =
       `<span>${esc(identity.companyName || "Parça Zinciri Yönetim")}</span><strong>${esc(identity.sellerNumber || "Yönetim hesabı")}</strong>`;
-    products = await api("products");
-    if (identity.role === "platform_admin") suppliers = await api("suppliers");
+    try{localStorage.setItem('pz-mobile-offline-context',JSON.stringify({identity,machineCatalog}));}catch{}
+    products=[];nextOffset=null;
+    if(!liveMode)products=await api('products');
     screenHistory?.dispose();
     screenHistory = createScreenHistory({key:'pz-mobile-screens',initial:{view:'products',listingKey:''},navigate:async route=>{
       if(busy){message('Gönderim sürüyor. Tamamlanınca geri dönebilirsiniz.',true);return false;}
@@ -148,8 +157,12 @@ async function boot() {
       return render(route.view, route.listingKey || '');
     }});
     render("products");
+    if(liveMode)checkNotifications(api,identity).catch(()=>{});
   } catch (e) {
     if(liveMode && e.status!==401 && hasRememberedSession()){
+      {
+        try{const cached=JSON.parse(localStorage.getItem('pz-mobile-offline-context')||'null');if(cached?.identity?.supplierKey){identity=cached.identity;machineCatalog=cached.machineCatalog;offlineEditor=true;editingKey='';view='form';navigation();await formView();message('Çevrimdışı taslak düzenleme. Göndermeden önce bağlantı ve hesabınız yeniden doğrulanır.');return;}}catch{}
+      }
       cleanup();identity=null;nav.innerHTML='';document.querySelector('#identity').textContent='';
       app.innerHTML='<div class="narrow panel"><h1>Bağlantı bekleniyor.</h1><p>Oturumunuz bu cihazda kayıtlı. İnternet bağlantısı geldiğinde şifre girmeden devam edebilirsiniz.</p><button id="retry-session" class="primary">Tekrar bağlan</button><button id="forget-session" class="secondary">Bu cihazdan çıkış yap</button></div>';
       document.querySelector('#retry-session').onclick=async e=>{e.target.disabled=true;message('');await boot();};
@@ -166,6 +179,8 @@ async function boot() {
 }
 function navigation() {
   nav.innerHTML = `<button data-view="products" class="${view === "products" ? "active" : ""}">Ürünler</button>${identity.role === "platform_admin" ? `<button data-view="suppliers" class="${view === "suppliers" ? "active" : ""}">Tedarikçiler</button>` : `<button data-view="form" class="${view === "form" ? "active" : ""}">＋ Ürün ekle</button>`}<button id="logout">Çıkış</button>`;
+  if(liveMode&&!offlineEditor)nav.querySelector('#logout').insertAdjacentHTML('beforebegin','<button data-view="notifications">Bildirimler <span id="notification-count"></span></button>');
+  if(offlineEditor){nav.querySelector('[data-view="products"]')?.remove();}
   nav.querySelectorAll("[data-view]").forEach(
     (b) =>
       (b.onclick = () => {
@@ -177,6 +192,7 @@ function navigation() {
     try {
       if (view === "form") await persist();
       await api("logout", {});
+      localStorage.removeItem('pz-mobile-offline-context');offlineEditor=false;editingKey='';
       draft = null;
       message("");
       showLogin();
@@ -193,11 +209,14 @@ async function render(next, listingKey = '') {
   }
   cleanup();
   view = next;
+  if(next==='form'){editingKey='';editSeed=null;}
   screenHistory?.record({view:next,listingKey});
   navigation();
+  if(next==='notifications')return mountNotifications(app,{api,identity,onOpen:key=>detail(key)});
   if (next === "form") return formView();
-  if (next === "suppliers") return suppliersView();
+  if (next === "suppliers") {suppliers=await api('suppliers');return suppliersView();}
   productsView(listingKey);
+  if(liveMode&&identity.role!=='platform_admin')await loadProducts();
 }
 function productsView(listingKey = '') {
   if (liveMode && identity.role === "platform_admin") {app.innerHTML = '<h1>Ürün onayları ve fiyatlar.</h1><div id="mobile-workbench"></div>'; mountListingWorkbench(app.querySelector("#mobile-workbench"), {api,initialKey:listingKey,onNavigate:key=>screenHistory?.record({view:'products',listingKey:key}),onBack:()=>screenHistory.back(()=>render('products'))}); return;}
@@ -209,9 +228,17 @@ function productsView(listingKey = '') {
   document
     .querySelector("#new-product")
     ?.addEventListener("click", () => render("form"));
+  if(liveMode){
+    document.querySelector('#status-filter').insertAdjacentHTML('beforeend','<option value="rejected">Düzenleme gerekli</option><option value="draft">Taslak</option><option value="archived">Arşivlendi</option>');
+    document.querySelector('#search').placeholder='Ürün adı veya kodu…';
+    document.querySelector('#search').value=listSearch;document.querySelector('#status-filter').value=listStatus;
+    document.querySelector('.stats .stat span').textContent='Gösterilen ürün';
+    document.querySelector('#cards').insertAdjacentHTML('afterend','<button id="load-more" class="secondary" hidden>Daha fazla ürün</button>');
+    document.querySelector('#load-more').onclick=()=>loadProducts(true);
+  }
   document.querySelector("#refresh").onclick = refresh;
   for (const id of ["search", "status-filter", "supplier-filter"])
-    document.getElementById(id)?.addEventListener("input", cards);
+    document.getElementById(id)?.addEventListener("input", ()=>{if(liveMode){listSearch=document.querySelector('#search').value;listStatus=document.querySelector('#status-filter').value;clearTimeout(window.pzSearchTimer);window.pzSearchTimer=setTimeout(()=>loadProducts(),300);}else cards();});
   for (const [id, value] of Object.entries(filters)) {
     const el = document.getElementById(id);
     if (el) el.value = value;
@@ -244,8 +271,19 @@ function cards() {
     .querySelectorAll("[data-id]")
     .forEach((b) => (b.onclick = () => detail(b.dataset.id)));
 }
+async function loadProducts(append=false){
+  const ticket=++listRequest,button=document.querySelector('#load-more');if(button)button.disabled=true;
+  try{
+    const page=await api('productPage',{offset:append?(nextOffset||0):0,search:listSearch,status:listStatus});
+    if(ticket!==listRequest||view!=='products'||identity?.role==='platform_admin')return;
+    products=append?[...products,...page.items.filter(p=>!products.some(old=>old.listingKey===p.listingKey))]:page.items;nextOffset=page.nextOffset;
+    cards();const stats=document.querySelectorAll('.stats strong');if(stats.length){stats[0].textContent=products.length;stats[1].textContent=products.filter(p=>p.status==='pending').length;stats[2].textContent=products.filter(p=>p.status==='approved').length;}
+    if(button)button.hidden=nextOffset===null;
+  }catch(e){if(ticket===listRequest)message(e.message,true);}finally{if(button)button.disabled=false;}
+}
 async function refresh() {
   if (busy || view === "form") return;
+  if(liveMode){checkNotifications(api,identity).catch(()=>{});if(identity.role!=='platform_admin'&&view==='products')await loadProducts();return;}
   try {
     const latest = await api("products");
     const changed = JSON.stringify(latest) !== JSON.stringify(products);
@@ -269,7 +307,7 @@ async function detail(id) {
     navigation();
     const media = p.media
       .map((m) =>
-        m.mime.startsWith("image/")
+        !m.url?'<div class="media-item"><p>Bu dosya şu an açılamıyor. Ürünü yeniden açarak tekrar deneyebilirsiniz.</p></div>':m.mime.startsWith("image/")
           ? `<div class="media-item"><img src="${esc(m.url)}" alt="${esc(p.title)}"></div>`
           : `<div class="media-item"><video controls preload="metadata" src="${esc(m.url)}"></video></div>`,
       )
@@ -293,6 +331,17 @@ async function detail(id) {
         "",
       )}</dl><p>${esc(p.description)}</p>${p.equipmentWorkDescription ? `<p>${esc(p.equipmentWorkDescription)}</p>` : ""}${p.machineModificationSummary ? `<p>${esc(p.machineModificationSummary)}</p>` : ""}</section>${identity.role === "platform_admin" && p.status === "pending" ? '<button id="approve" class="primary">Ürünü onayla</button><p class="help">'+(liveMode?'Onay verdiğiniz ürün canlı katalogda yayınlanır.':'Yerel demoda onay durumunu değiştirir; canlı katalogda yayın oluşturmaz.')+'</p>' : ""}`;
     document.querySelector("#back").onclick = () => screenHistory ? screenHistory.back(()=>render('products')) : render('products');
+    if(liveMode&&identity.role!=='platform_admin'){
+      if(p.rejectionReason)app.querySelector('.panel').insertAdjacentHTML('afterbegin','<p class="note"><strong>Düzenleme gerekçesi:</strong> '+esc(p.rejectionReason)+'</p>');
+      if(['draft','rejected','approved'].includes(p.status)){
+        app.insertAdjacentHTML('beforeend','<div class="actions"><button id="edit-product" class="primary">Ürünü / stok ve fiyatı düzenle</button><button id="archive-product" class="secondary">Arşivle</button></div><p class="help">Stok değişikliği kayda yansır. Fiyat, görsel veya ürün bilgisi değişirse ürün yeniden yönetim onayına gider.</p>');
+        document.querySelector('#edit-product').onclick=async()=>{
+          editingKey=p.listingKey;editSeed={idempotencyKey:crypto.randomUUID(),listingKey:p.listingKey,expectedUpdatedAt:p.updatedAt,originalStatus:p.status,fields:{...p},media:p.media.map(m=>({localId:crypto.randomUUID(),existing:true,remote:{...m,id:m.id||m.fileId},file:{type:m.mime,size:m.size||1,name:m.name||'Kayıtlı dosya'}}))};
+          cleanup();view='form';navigation();await formView();
+        };
+        document.querySelector('#archive-product').onclick=async e=>{if(!confirm('Ürün arşivlensin mi? Katalogda satıştan kaldırılacak.'))return;e.target.disabled=true;try{await api('archiveProduct',{listingKey:p.listingKey,expectedUpdatedAt:p.updatedAt});message('Ürün arşivlendi.');await render('products');}catch(err){message(err.message,true);e.target.disabled=false;}};
+      }
+    }
     document
       .querySelector("#approve")
       ?.addEventListener("click", async (event) => {
@@ -319,13 +368,19 @@ function freshDraft() {
   };
 }
 async function formView() {
-  try { draft = (await loadDraft(draftKey())) || freshDraft(); }
+  try { draft = (await loadDraft(draftKey())) || editSeed || freshDraft(); }
   catch {
     message("Cihazdaki taslak okunamadı. Eski taslağın üzerine yazılmadı; tarayıcı depolama izinlerini kontrol edin.", true);
     view = "products"; navigation(); productsView(); return;
   }
   app.innerHTML = `<p class="eyebrow">Parça başında ürün girişi</p><h1>Yeni ürün.</h1><p class="sub">Görselleri ekleyin, bilgileri tamamlayın, onaya gönderin.</p><form id="product-form"><section class="panel"><h2>1. Fotoğraf ve video</h2><div class="media-buttons"><label class="media-button">＋ Fotoğraf çek<input id="camera" type="file" accept="image/*" capture="environment"></label><label class="media-button">Galeri<input id="gallery" type="file" accept="image/jpeg,image/png,image/webp" multiple></label><label class="media-button">＋ Video çek<input id="video" type="file" accept="video/*" capture="environment"></label></div><p class="help">1–6 fotoğraf, isteğe bağlı 1 video. Video en fazla 10 saniye olmalı; daha uzunu yüklenmez. Fotoğraf en fazla 10 MB, video 50 MB. JPEG, PNG, WebP; MP4, MOV veya WebM.</p><div id="media" class="media-grid"></div></section><section class="panel"><h2>2. Ürün bilgileri</h2>${select("listingType", "İlan türü", { part: "Parça", equipment: "Ekipman", machine: "Makine" })}<div data-kind="part" class="fields">${input("partName", "Parça adı", "text", 'maxlength="200" class="full"')}${select("partOriginType", "Parça türü", { original: "Orijinal", aftermarket: "Yan sanayi" })}${select("partCondition", "Parça durumu", conditions)}</div><div data-kind="equipment" class="fields">${select("equipmentType", "Ekipman türü", equipmentTypes)}${select("equipmentCondition", "Ekipman durumu", { new_original: "Sıfır, orijinal", original_reconditioned: "Orijinal, revizyonlu" })}${textarea("equipmentWorkDescription", "Revizyonda yapılan işlemler")}</div><div data-kind="machine" class="fields">${input("modelYear", "Model yılı", "number", `min="1900" max="${new Date().getFullYear()}"`)}${textarea("machineModificationSummary", "Yapılan işlemler / değişiklik özeti", true)}</div>${input("productCode", "Ürün / stok kodu", "text", 'maxlength="80" placeholder="Mevcut kod veya kendi stok kodunuz" autocomplete="off"')}<p class="help">Parçanın mevcut kodunu veya kendiniz belirlediğiniz stok kodunu girebilirsiniz. Kod girmeyecekseniz Diğer seçeneğini kullanın.</p><label class="check"><input name="productCodeUnknown" type="checkbox"><span><strong>Diğer</strong> — ürün/stok kodu elimde yok</span></label><div class="fields">${input("stockQuantity", "Stok adedi", "number", 'min="1" step="1" inputmode="numeric"')}${input("priceEur", "Birim fiyat (€)", "text", 'inputmode="decimal" placeholder="0,00"')}</div></section><section class="panel"><h2>3. Makine ve uyumluluk</h2><div class="fields">${select("machineType", "Makine türü", machineTypes)}${input("machineBrandName", "Makine markası")}${input("machineModelName", "Makine modeli")}${input("machineSerialNumber", "Makine seri numarası", "text", 'maxlength="80"')}</div><div data-kind="part">${input("oem", "OEM / referans numarası", "text", 'maxlength="80"')}<label class="check"><input name="oemUnknown" type="checkbox"><span>OEM / referans numarası bilinmiyor</span></label></div>${textarea("description", "Açıklama (isteğe bağlı)")}</section><p class="note">Ürün, hesabınızdaki <strong>${esc(identity.sellerNumber)}</strong> satıcı numarasına kaydedilir. “Diğer” seçimi yeni bir ürün kodu üretmez.</p><p id="draft-state" class="help">${draft.media.length ? "Cihazdaki taslak açıldı." : "Form ve dosyalar bu hesap için cihazda taslak olarak saklanır."}</p><section id="upload-status" class="upload-status" hidden aria-label="Ürün gönderim durumu"><div class="upload-heading"><strong id="upload-stage" role="status" aria-live="polite">Gönderim hazırlanıyor</strong><strong id="upload-percent">%0</strong></div><progress id="upload-progress" aria-label="Toplam gönderim ilerlemesi" max="100" value="0"></progress><p id="upload-file"></p><p id="upload-hint"></p></section><div class="actions"><button id="save-draft" class="secondary" type="button">Taslağı cihazda sakla</button><button id="submit" class="primary" type="submit">Onaya gönder</button></div></form>`;
   const form = document.querySelector("#product-form");
+  if(editingKey){app.querySelector('h1').textContent='Ürünü düzenle';form.querySelector('#submit').textContent='Değişiklikleri kaydet';if(draft.originalStatus==='approved')form.elements.stockQuantity.min='0';}
+  form.querySelector('#video').closest('label').firstChild.textContent='Video seç/çek';
+  if(!/; wv\)/.test(navigator.userAgent)){
+    form.querySelector('.media-buttons').insertAdjacentHTML('beforeend','<button type="button" id="record-video" class="secondary">10 saniyelik video çek</button>');
+    form.querySelector('#record-video').onclick=async e=>{if(draft.media.some(m=>videoTypes.includes(m.file.type))){message('En fazla bir video ekleyebilirsiniz.',true);return;}e.target.disabled=true;try{const file=await recordVideo();if(file){const durationSeconds=await readVideoDuration(file);draft.media.push({localId:crypto.randomUUID(),file,durationSeconds});await persist();mediaView();}}catch(err){message(err.message,true);}finally{e.target.disabled=false;}};
+  }
   if(liveMode && machineCatalog){
     const brand=form.elements.machineBrandName.closest('label'),model=form.elements.machineModelName.closest('label');
     brand.insertAdjacentHTML('beforebegin',select('machineBrandId','Makine markası',{}));
@@ -461,7 +516,7 @@ function mediaView() {
   document.querySelector("#media").innerHTML = draft.media
     .map(
       (m, i) =>
-        `<div class="media-item">${imageTypes.includes(m.file.type) ? `<img alt="Ürün fotoğrafı ${i + 1}" src="${blobUrl(m.file)}">` : `<video controls preload="metadata" src="${blobUrl(m.file)}"></video>`}<p>${esc(m.file.name)}</p><button type="button" data-remove="${m.localId}">Kaldır</button></div>`,
+        `<div class="media-item">${imageTypes.includes(m.file.type) ? `<img alt="Ürün fotoğrafı ${i + 1}" src="${esc(m.existing?m.remote.url:blobUrl(m.file))}">` : `<video controls preload="metadata" src="${esc(m.existing?m.remote.url:blobUrl(m.file))}"></video>`}<p>${esc(m.file.name)}</p><button type="button" data-remove="${m.localId}">Kaldır</button></div>`,
     )
     .join("");
   app.querySelectorAll("[data-remove]").forEach(
@@ -480,7 +535,7 @@ async function submit(event) {
   if (busy) return;
   collect();
   try {
-    validateProduct(draft.fields,draft.media.map(m=>({mime:m.file.type,size:m.file.size})));
+    validateProduct(draft.fields,draft.media.map(m=>({mime:m.file.type,size:m.file.size})),{allowZeroStock:draft.originalStatus==='approved'});
   } catch(e) {
     message(e.message,true);
     document.querySelector("#product-form").elements.namedItem(e.field)?.focus();
@@ -524,9 +579,10 @@ async function submit(event) {
   try {
     await persist();draftSaved=true;
     if(!navigator.onLine)throw new Error("İnternet bağlantısı yok. Bağlantı gelince tekrar gönderin.");
+    if(offlineEditor){const verified=await api('session');if(verified.memberId!==identity.memberId||verified.supplierKey!==identity.supplierKey)throw new Error('Hesap değişti. Taslak sahibi hesapla yeniden giriş yapın.');identity=verified;offlineEditor=false;}
     // Recheck restored drafts too, before uploading any bytes.
     for(const media of draft.media){
-      if(videoTypes.includes(media.file.type)){
+      if(!media.existing && videoTypes.includes(media.file.type)){
         update(0,"preparing","Video süresi kontrol ediliyor · En fazla 10 saniye");
         media.durationSeconds=await readVideoDuration(media.file);
       }
@@ -552,13 +608,13 @@ async function submit(event) {
       update(uploadPercent(finished,total),"processing",label);
     }
     update(95,"saving","Fotoğraf ve video yüklemeleri tamamlandı.");
-    const saved=await api("products",{...submissionFields,mediaIds:draft.media.map(m=>m.remote.id),idempotencyKey:submissionKey});
+    const saved=await api(editingKey?'updateProduct':"products",{...submissionFields,mediaIds:draft.media.map(m=>m.remote.id),idempotencyKey:submissionKey,...(editingKey?{listingKey:editingKey,expectedUpdatedAt:draft.expectedUpdatedAt}:{})});
     update(100,"complete");
     let cleanupFailed=false;
     await clearDraft(draftKey()).catch(()=>{cleanupFailed=true;});
-    draft=null;busy=false;
+    draft=null;busy=false;editingKey='';editSeed=null;
     products=products.filter(p=>p.listingKey!==saved.listingKey).concat(saved);
-    message("%100 · "+(liveMode?"Ürün tedarikçi panelinize kaydedildi ve yönetim onayına gönderildi.":"Ürün yerel demoda yönetim onayına gönderildi.")+
+    message("%100 · "+(liveMode?(saved.status==='approved'?"Stok güncellendi.":"Ürün kaydedildi ve yönetim onayına gönderildi."):"Ürün yerel demoda yönetim onayına gönderildi.")+
       (cleanupFailed?" Cihaz taslağı temizlenemedi; aynı taslağın tekrar gönderimi aynı ürün kaydını kullanır.":""));
     render("products");window.scrollTo({top:0,behavior:"instant"});
   } catch(e) {

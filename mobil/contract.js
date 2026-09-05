@@ -31,7 +31,7 @@ export const states = {
 };
 export const imageTypes = ["image/jpeg", "image/png", "image/webp"];
 export const videoTypes = ["video/mp4", "video/quicktime", "video/webm"];
-export function validateProduct(input, media = []) {
+export function validateProduct(input, media = [], {allowZeroStock=false} = {}) {
   const out = {};
   function fail(field, message) {
     const e = new Error(message);
@@ -64,8 +64,8 @@ export function validateProduct(input, media = []) {
   ])
     str(k, false);
   out.stockQuantity = Number(input.stockQuantity);
-  if (!Number.isSafeInteger(out.stockQuantity) || out.stockQuantity < 1)
-    fail("stockQuantity", "Stok adedi pozitif tam sayı olmalı.");
+  if (!Number.isSafeInteger(out.stockQuantity) || out.stockQuantity < (allowZeroStock?0:1))
+    fail("stockQuantity", allowZeroStock?"Stok adedi sıfır veya pozitif tam sayı olmalı.":"Stok adedi pozitif tam sayı olmalı.");
   const p = String(input.priceEur ?? "").trim();
   if (!/^\d+([.,]\d{1,2})?$/.test(p) || !(Number(p.replace(",", ".")) > 0))
     fail("priceEur", "Sıfırdan büyük bir EUR fiyatı girin.");
