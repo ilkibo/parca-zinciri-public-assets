@@ -1681,6 +1681,7 @@ table.data tr.clickable{cursor:pointer}
     }
 
     _setRoute(route) {
+      if(route==='inventory')this._loadLiveInventory();
       this._state.route = route;
       this._state.sideOpen = false;
       this._state.notifOpen = false;
@@ -1864,6 +1865,7 @@ table.data tr.clickable{cursor:pointer}
         return;
       }
       var action = t.getAttribute("data-action");
+      if(action==='reload-live-inventory'){this._loadLiveInventory();return;}
       if (action === "load-server-drafts") {this._loadServerDrafts(Number(t.getAttribute("data-offset")) || 0);return;}
       if (action === "open-server-draft") {this._openServerDraft(t.getAttribute("data-rfq"),t.getAttribute("data-draft"));return;}
       var id = t.getAttribute("data-id") || "";
@@ -3788,6 +3790,39 @@ table.data tr.clickable{cursor:pointer}
     }
 
     _renderInventory() {
+      return this._renderLiveInventory();
+    }
+
+    async _loadLiveInventory() {
+      if(this._inventoryLoading)return;
+      this._inventoryLoading=true;this._inventoryError='';
+      var company=this._state.serverContext && this._state.serverContext.companyId;
+      try{
+        var items=[],offset=0,result;
+        do{result=await this._pricedQuoteApi('getMobileInventory',{offset:offset});items=items.concat(result.items||[]);offset=result.nextOffset;}while(offset!=null);
+        if(company!==(this._state.serverContext && this._state.serverContext.companyId))return;
+        this._liveInventory=items;this._liveInventoryIdentity=result.identity;
+        if(result.identity && result.identity.companyName)this._state.profile.companyName=result.identity.companyName;
+      }catch(err){this._liveInventory=[];this._inventoryError='Ürünler sunucudan okunamadı. Tekrar deneyin.';}
+      finally{this._inventoryLoading=false;if(this._state.route==='inventory')this._render();}
+    }
+
+    _renderLiveInventory() {
+      var q=(this._state.invSearch||'').toLocaleLowerCase('tr');
+      var rows=(this._liveInventory||[]).filter(function(p){return [p.title,p.productCode,p.oem].join(' ').toLocaleLowerCase('tr').indexOf(q)!==-1;});
+      var identity=this._liveInventoryIdentity||{};
+      var status={draft:'Taslak',pending:'Onay bekliyor',approved:'Onaylandı',rejected:'Reddedildi',archived:'Arşivlendi'};
+      var content=rows.map(function(p){
+        var media=(p.media||[]).map(function(m){
+          if(!/^https:\/\/(static\.wixstatic\.com|video\.wixstatic\.com|[a-z0-9.-]+\.wixmp\.com)\//i.test(m.url||''))return '';
+          return m.mime.indexOf('video/')===0?'<video controls preload="metadata" style="max-width:260px" src="'+esc(m.url)+'"></video>':'<img alt="'+esc(p.title)+'" style="width:120px;height:100px;object-fit:contain;background:white" src="'+esc(m.url)+'">';
+        }).join('');
+        return '<article class="panel" data-live-listing="'+esc(p.listingKey)+'"><h3>'+esc(p.title)+'</h3><div>'+media+'</div><p>Ürün / stok kodu: '+esc(p.productCodeUnknown?'Belirtilmemiş · Diğer':p.productCode)+' · '+esc(p.stockQuantity)+' adet · '+esc(money(p.priceEur,'EUR'))+'</p><p>'+esc(status[p.status]||p.status)+'</p><details><summary>Kayıt bilgileri</summary><p>Satıcı no: '+esc(p.sellerNumber)+'</p><p>Kayıt no: '+esc(p.listingKey)+'</p><p>Kullanıcı no: '+esc(p.ownerMemberId)+'</p></details></article>';
+      }).join('');
+      return '<div class="eyebrow">Stok ve Katalog</div><p>Mobil uygulama ve bu panel aynı tedarikçi kayıtlarını kullanır.</p><p style="overflow-wrap:anywhere">'+esc(identity.companyName||'')+' · '+esc(identity.sellerNumber||'')+'</p><div class="toolbar"><a class="btn primary sm" href="https://ilkibo.github.io/parca-zinciri-public-assets/mobil/" target="_blank" rel="noopener">Yeni Parça Ekle</a><button class="btn sm" data-action="reload-live-inventory">Yenile</button><input aria-label="Stok arama" placeholder="Stokta ara" data-inv-search value="'+esc(this._state.invSearch||'')+'"></div>'+(this._inventoryLoading?'<p>Ürünler yükleniyor…</p>':this._inventoryError?'<p role="alert">'+esc(this._inventoryError)+'</p>':content||'<p>Henüz ürün bulunmuyor.</p>');
+    }
+
+    _renderLegacyInventory() {
       var q = (this._state.invSearch || "").toLowerCase();
       var sort = this._state.invSort;
       var list = this._state.inventory.slice().filter(function (i) {
