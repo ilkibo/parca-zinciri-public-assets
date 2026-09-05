@@ -21,9 +21,10 @@ export async function liveApi(route,body) {
   return rpc(route,body||{});
 }
 export async function liveUpload(media,onSaved) {
-  if(!media.upload?.fileId){media.upload=await rpc('uploadStart',{name:media.file.name,mime:media.file.type,size:media.file.size});}
+  let uploadUrl;
+  if(!media.upload?.fileId){const started=await rpc('uploadStart',{name:media.file.name,mime:media.file.type,size:media.file.size});uploadUrl=started.uploadUrl;delete started.uploadUrl;media.upload=started;}
   if(!media.upload.fileId){
-    const url=new URL(media.upload.uploadUrl);
+    const url=new URL(uploadUrl);
     if(url.protocol!=='https:'||!(url.hostname.endsWith('.wix.com')||url.hostname.endsWith('.wixapis.com')||url.hostname.endsWith('.wixmp.com')))throw new Error('Yükleme adresi doğrulanamadı.');
     url.searchParams.set('filename',media.upload.fileName);
     const res=await fetch(url,{method:'PUT',headers:{'Content-Type':media.file.type},body:media.file,credentials:'omit',signal:AbortSignal.timeout(180000)});

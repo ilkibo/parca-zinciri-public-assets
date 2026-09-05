@@ -267,7 +267,7 @@ async function detail(id) {
       .map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`)
       .join(
         "",
-      )}</dl><p>${esc(p.description)}</p>${p.equipmentWorkDescription ? `<p>${esc(p.equipmentWorkDescription)}</p>` : ""}${p.machineModificationSummary ? `<p>${esc(p.machineModificationSummary)}</p>` : ""}</section>${identity.role === "platform_admin" && p.status === "pending" ? '<button id="approve" class="primary">Ürünü onayla</button><p class="help">Yerel demoda onay durumunu değiştirir; canlı katalogda yayın oluşturmaz.</p>' : ""}`;
+      )}</dl><p>${esc(p.description)}</p>${p.equipmentWorkDescription ? `<p>${esc(p.equipmentWorkDescription)}</p>` : ""}${p.machineModificationSummary ? `<p>${esc(p.machineModificationSummary)}</p>` : ""}</section>${identity.role === "platform_admin" && p.status === "pending" ? '<button id="approve" class="primary">Ürünü onayla</button><p class="help">'+(liveMode?'Onay verdiğiniz ürün canlı katalogda yayınlanır.':'Yerel demoda onay durumunu değiştirir; canlı katalogda yayın oluşturmaz.')+'</p>' : ""}`;
     document.querySelector("#back").onclick = () => render("products");
     document
       .querySelector("#approve")

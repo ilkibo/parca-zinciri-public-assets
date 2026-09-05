@@ -1272,6 +1272,8 @@ table.data tr.clickable{cursor:pointer}
     }
 
     connectedCallback() {
+      if(!this._inventoryFocusRefresh)this._inventoryFocusRefresh=()=>{if(this._state?.authUi==='active_supplier'&&this._state.route==='inventory')this._loadLiveInventory();};
+      window.addEventListener('focus',this._inventoryFocusRefresh);
       if (this.__mounted) return;
       this.__mounted = true;
       ensureFonts();
@@ -1303,6 +1305,10 @@ table.data tr.clickable{cursor:pointer}
       this._render();
       this._alignNativeWixLogin();
       this._emit("pz-supplier-refresh");
+    }
+
+    disconnectedCallback() {
+      if(this._inventoryFocusRefresh)window.removeEventListener('focus',this._inventoryFocusRefresh);
     }
 
     _purgeLegacyAuthStorage() {
@@ -1405,6 +1411,7 @@ table.data tr.clickable{cursor:pointer}
       if (this._httpDemoSession && authUi !== "active_supplier") {
         return;
       }
+      if(authUi!=='active_supplier'||ctx?.companyId!==this._state.serverContext?.companyId){this._liveInventory=[];this._liveInventoryIdentity=null;this._inventoryError='';}
       this._state.authUi = authUi;
       this._state.serverContext = ctx;
       this._state.logoutBusy = false;

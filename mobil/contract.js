@@ -27,6 +27,7 @@ export const states = {
   approved: "Onaylandı",
   draft: "Taslak",
   rejected: "Düzenleme gerekli",
+  archived: "Arşivlendi",
 };
 export const imageTypes = ["image/jpeg", "image/png", "image/webp"];
 export const videoTypes = ["video/mp4", "video/quicktime", "video/webm"];
