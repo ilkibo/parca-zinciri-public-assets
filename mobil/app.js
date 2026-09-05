@@ -1,4 +1,6 @@
 import {mountListingReview, mountListingWorkbench} from './pricing.js';
+import {createScreenHistory} from './navigation.js';
+let screenHistory = null;
 import {
   machineTypes,
   conditions,
@@ -100,6 +102,7 @@ function textarea(name, label, required = false) {
   return `<label class="field full">${label}<textarea name="${name}" ${required ? "required" : ""}></textarea></label>`;
 }
 function showLogin() {
+  screenHistory?.dispose(); screenHistory = null;
   cleanup();
   identity = null;
   nav.innerHTML = "";
@@ -137,6 +140,13 @@ async function boot() {
       `<span>${esc(identity.companyName || "Parça Zinciri Yönetim")}</span><strong>${esc(identity.sellerNumber || "Yönetim hesabı")}</strong>`;
     products = await api("products");
     if (identity.role === "platform_admin") suppliers = await api("suppliers");
+    screenHistory?.dispose();
+    screenHistory = createScreenHistory({key:'pz-mobile-screens',initial:{view:'products',listingKey:''},navigate:async route=>{
+      if(busy){message('Gönderim sürüyor. Tamamlanınca geri dönebilirsiniz.',true);return false;}
+      if(!identity)return false;
+      if(route.view==='detail')return detail(route.listingKey);
+      return render(route.view, route.listingKey || '');
+    }});
     render("products");
   } catch (e) {
     if(liveMode && e.status!==401 && hasRememberedSession()){
@@ -175,21 +185,22 @@ function navigation() {
     }
   };
 }
-async function render(next) {
-  if (busy) return;
+async function render(next, listingKey = '') {
+  if (busy) return false;
   if (view === "form" && draft && document.querySelector("#product-form")) {
     try { await persist(); }
-    catch { message("Taslak cihazda saklanamadı. Veri kaybetmemeniz için form açık tutuldu; cihaz alanını kontrol edin.", true); return; }
+    catch { message("Taslak cihazda saklanamadı. Veri kaybetmemeniz için form açık tutuldu; cihaz alanını kontrol edin.", true); return false; }
   }
   cleanup();
   view = next;
+  screenHistory?.record({view:next,listingKey});
   navigation();
   if (next === "form") return formView();
   if (next === "suppliers") return suppliersView();
-  productsView();
+  productsView(listingKey);
 }
-function productsView() {
-  if (liveMode && identity.role === "platform_admin") {app.innerHTML = '<h1>Ürün onayları ve fiyatlar.</h1><div id="mobile-workbench"></div>'; mountListingWorkbench(app.querySelector("#mobile-workbench"), {api}); return;}
+function productsView(listingKey = '') {
+  if (liveMode && identity.role === "platform_admin") {app.innerHTML = '<h1>Ürün onayları ve fiyatlar.</h1><div id="mobile-workbench"></div>'; mountListingWorkbench(app.querySelector("#mobile-workbench"), {api,initialKey:listingKey,onNavigate:key=>screenHistory?.record({view:'products',listingKey:key}),onBack:()=>screenHistory.back(()=>render('products'))}); return;}
   const filters = Object.fromEntries(
     ["search", "status-filter", "supplier-filter"].map((id) => [id, document.getElementById(id)?.value || ""]),
   );
@@ -254,6 +265,7 @@ async function detail(id) {
     const p = await api("products/" + id);
     cleanup();
     view = "detail";
+    screenHistory?.record({view:'detail',listingKey:id});
     navigation();
     const media = p.media
       .map((m) =>
@@ -280,7 +292,7 @@ async function detail(id) {
       .join(
         "",
       )}</dl><p>${esc(p.description)}</p>${p.equipmentWorkDescription ? `<p>${esc(p.equipmentWorkDescription)}</p>` : ""}${p.machineModificationSummary ? `<p>${esc(p.machineModificationSummary)}</p>` : ""}</section>${identity.role === "platform_admin" && p.status === "pending" ? '<button id="approve" class="primary">Ürünü onayla</button><p class="help">'+(liveMode?'Onay verdiğiniz ürün canlı katalogda yayınlanır.':'Yerel demoda onay durumunu değiştirir; canlı katalogda yayın oluşturmaz.')+'</p>' : ""}`;
-    document.querySelector("#back").onclick = () => render("products");
+    document.querySelector("#back").onclick = () => screenHistory ? screenHistory.back(()=>render('products')) : render('products');
     document
       .querySelector("#approve")
       ?.addEventListener("click", async (event) => {

@@ -17,6 +17,7 @@ export async function mountListingReview(root, options) {
   try {
     const result = await api('getListingReview', {listingKey});
     if (!root.isConnected) return;
+    options.onNavigate?.(listingKey);
     const p = result.listing, editable = ['pending', 'approved'].includes(p.status);
     root.innerHTML = priceCss + `<div class="pz-pricing">${onBack ? '<button type="button" data-back>← Ürün onayları ve arama</button>' : ''}<h2>${priceEsc(p.title)}</h2><div class="pr-box"><div class="pr-grid"><div>${/^https:\/\//.test(p.imageUrl) ? `<img class="pr-photo" src="${priceEsc(p.imageUrl)}" alt="${priceEsc(p.title)}">` : ''}<strong>${priceEsc(p.companyName)}</strong><p class="pr-muted">${priceEsc(p.sellerNumber)}</p></div><dl><dt>Ürün / stok kodu</dt><dd>${priceEsc(p.productCode || 'Belirtilmemiş — Diğer')}</dd><dt>OEM / referans</dt><dd>${priceEsc(p.oem || 'Belirtilmemiş')}</dd></dl><dl><dt>Tedarikçi birim fiyatı</dt><dd>${priceMoney(p.priceEur == null ? null : Math.round(p.priceEur * 100))}</dd><dt>Stok / durum</dt><dd>${priceEsc(p.stockQuantity)} adet · ${priceEsc(priceStates[p.status] || p.status)}</dd></dl></div><p>${priceEsc(p.description)}</p><p class="pr-muted">Eklenme: ${priceEsc(p.createdAt ? new Date(p.createdAt).toLocaleString('tr-TR') : '—')}</p></div>
     <section class="pr-box"><h3>Aynı kod hangi tedarikçilerde var?</h3><form data-compare><label>Ürün / stok kodu<input name="productCode" required maxlength="80" value="${priceEsc(p.productCode)}" placeholder="Örneğin 18461"></label><button type="submit">Tedarikçi fiyatlarını karşılaştır</button></form><p class="pr-muted">Kodun tamamı eşleşmelidir; boşluk ve noktalama farkları yok sayılır. Marka ve parça durumunu da karşılaştırın. Fiyatlar yalnızca yönetime gösterilir.</p><div data-offers aria-live="polite"></div></section>
@@ -95,8 +96,9 @@ export async function mountListingReview(root, options) {
     root.querySelector('[data-retry]').onclick = () => mountListingReview(root, options);
   }
 }
-export function mountListingWorkbench(root, {api, initialKey = '', onApproved}) {
-  if (initialKey) return mountListingReview(root, {api, listingKey:initialKey, onApproved, onBack:() => mountListingWorkbench(root, {api, onApproved})});
+export function mountListingWorkbench(root, {api, initialKey = '', onApproved, onNavigate, onBack}) {
+  if (initialKey) return mountListingReview(root, {api, listingKey:initialKey, onApproved, onNavigate, onBack:onBack || (() => mountListingWorkbench(root, {api, onApproved, onNavigate, onBack}))});
+  onNavigate?.('');
   root.innerHTML = priceCss + `<div class="pz-pricing"><p>Ürünleri inceleyin, tedarikçi fiyatlarını karşılaştırın ve komisyon ekleyerek onaylayın.</p><form data-search class="pr-box"><div class="pr-grid"><label>Ürün / stok koduyla ara<input name="productCode" maxlength="80" placeholder="Örneğin 18461"></label><label>Durum<select name="status"><option value="pending">Onay bekleyenler</option><option value="">Tüm durumlar</option><option value="approved">Onaylananlar</option><option value="rejected">Reddedilenler</option></select></label></div><button type="submit">Ara / yenile</button><p class="pr-muted">Kod yazıldığında tüm tedarikçilerin panele eklediği ürünlerde tam kod eşleşmesi aranır. Firma, stok ve fiyat bilgileri yalnızca yönetim içindir.</p></form><div data-results aria-live="polite"></div></div>`;
   const form = root.querySelector('[data-search]'), output = root.querySelector('[data-results]');let version = 0;
   form.elements.productCode.addEventListener('input', () => {if (form.elements.productCode.value.trim()) form.elements.status.value = '';});
@@ -110,7 +112,7 @@ export function mountListingWorkbench(root, {api, initialKey = '', onApproved}) 
       output.querySelector('[data-more]')?.remove();
       output.insertAdjacentHTML('beforeend', offerTable(result.items) + (result.nextOffset !== null ? '<button data-more>Diğer ürünleri getir</button>' : ''));
       output.querySelector('[data-more]')?.addEventListener('click', () => search(result.nextOffset, true));
-      output.querySelectorAll('[data-review-key]').forEach(b => b.onclick = () => mountListingWorkbench(root, {api, initialKey:b.dataset.reviewKey, onApproved}));
+      output.querySelectorAll('[data-review-key]').forEach(b => b.onclick = () => mountListingWorkbench(root, {api, initialKey:b.dataset.reviewKey, onApproved, onNavigate, onBack}));
     } catch (e) {if (ticket === version) output.textContent = e.message;}
   }
   form.onsubmit = e => {e.preventDefault(); search();}; search();
