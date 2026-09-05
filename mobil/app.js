@@ -1,3 +1,4 @@
+import {mountListingReview, mountListingWorkbench} from './pricing.js';
 import {
   machineTypes,
   conditions,
@@ -188,6 +189,7 @@ async function render(next) {
   productsView();
 }
 function productsView() {
+  if (liveMode && identity.role === "platform_admin") {app.innerHTML = '<h1>Ürün onayları ve fiyatlar.</h1><div id="mobile-workbench"></div>'; mountListingWorkbench(app.querySelector("#mobile-workbench"), {api}); return;}
   const filters = Object.fromEntries(
     ["search", "status-filter", "supplier-filter"].map((id) => [id, document.getElementById(id)?.value || ""]),
   );
@@ -247,6 +249,7 @@ function suppliersView() {
   app.innerHTML = `<p class="eyebrow">Yönetim paneli</p><h1>Tedarikçiler.</h1><p class="sub">Her firma, sunucunun atadığı sabit bir satıcı numarasıyla tanımlanır.</p><section class="panel">${suppliers.map((s) => `<div class="supplier"><div><strong>${esc(s.companyName)}</strong><p>${products.filter((p) => p.supplierKey === s.supplierKey).length} ürün</p></div><strong>${esc(s.sellerNumber)}</strong></div>`).join("")}</section>`;
 }
 async function detail(id) {
+  if (liveMode && identity.role === "platform_admin") {cleanup();view="detail";navigation();app.innerHTML='<div id="mobile-review"></div>';await mountListingReview(app.querySelector("#mobile-review"), {api,listingKey:id,onBack:()=>render("products")});return;}
   try {
     const p = await api("products/" + id);
     cleanup();
