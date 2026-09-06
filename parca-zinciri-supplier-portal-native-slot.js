@@ -1272,6 +1272,10 @@ table.data tr.clickable{cursor:pointer}
     }
 
     connectedCallback() {
+      this.setAttribute('data-pz-notifications-version','live-1');
+      if(!this._noticeFocusRefresh)this._noticeFocusRefresh=()=>this._loadLiveNotifications();
+      window.addEventListener('focus',this._noticeFocusRefresh);
+      if(!this._noticePoll)this._noticePoll=setInterval(()=>{if(!document.hidden&&this._noticeRows().length<=30)this._loadLiveNotifications();},30000);
       if(!this._inventoryFocusRefresh)this._inventoryFocusRefresh=()=>{if(this._state?.authUi==='active_supplier'&&this._state.route==='inventory')this._loadLiveInventory();};
       window.addEventListener('focus',this._inventoryFocusRefresh);
       if (this.__mounted) return;
@@ -1309,6 +1313,8 @@ table.data tr.clickable{cursor:pointer}
 
     disconnectedCallback() {
       if(this._inventoryFocusRefresh)window.removeEventListener('focus',this._inventoryFocusRefresh);
+      if(this._noticeFocusRefresh)window.removeEventListener('focus',this._noticeFocusRefresh);
+      clearInterval(this._noticePoll);this._noticePoll=null;this._noticeEpoch=(this._noticeEpoch||0)+1;this._noticeLoading=false;
     }
 
     _purgeLegacyAuthStorage() {
@@ -1412,6 +1418,9 @@ table.data tr.clickable{cursor:pointer}
         return;
       }
       if(authUi!=='active_supplier'||ctx?.companyId!==this._state.serverContext?.companyId){this._liveInventory=[];this._liveInventoryIdentity=null;this._inventoryError='';}
+      var noticeScope=authUi==='active_supplier'&&ctx&&ctx.companyId?String(ctx.companyId)+':'+String(ctx.role||''):'';
+      var noticeChanged=noticeScope!==this._noticeScope;
+      if(noticeChanged){this._noticeScope=noticeScope;this._noticeEpoch=(this._noticeEpoch||0)+1;this._liveNotices=[];this._noticeNext=null;this._noticeLoading=false;this._noticeError='';this._noticeLoaded=false;}
       this._state.authUi = authUi;
       this._state.serverContext = ctx;
       this._state.logoutBusy = false;
@@ -1444,6 +1453,7 @@ table.data tr.clickable{cursor:pointer}
         }
       }
       if (this._root) this._render();
+      if(noticeChanged&&noticeScope)this._loadLiveNotifications();
     }
 
     _applyTheme(theme, persist) {
@@ -1695,6 +1705,7 @@ table.data tr.clickable{cursor:pointer}
       this._state.drawer = null;
       this._state.modal = null;
       this._render();
+      if(route==='notifications')this._loadLiveNotifications();
     }
 
     _filteredRequests() {
@@ -1873,6 +1884,8 @@ table.data tr.clickable{cursor:pointer}
       }
       var action = t.getAttribute("data-action");
       if(action==='reload-live-inventory'){this._loadLiveInventory();return;}
+      if(action==='reload-live-notices'){this._loadLiveNotifications();return;}
+      if(action==='more-live-notices'){this._loadLiveNotifications(true);return;}
       if (action === "load-server-drafts") {this._loadServerDrafts(Number(t.getAttribute("data-offset")) || 0);return;}
       if (action === "open-server-draft") {this._openServerDraft(t.getAttribute("data-rfq"),t.getAttribute("data-draft"));return;}
       var id = t.getAttribute("data-id") || "";
@@ -1896,6 +1909,7 @@ table.data tr.clickable{cursor:pointer}
         s.session = null;
         s.serverContext = null;
         s.authUi = "unauthenticated";
+        this._resetLiveNotices();
         s.loginError = null;
         s.screen = "login";
         s.userMenuOpen = false;
@@ -1948,6 +1962,7 @@ table.data tr.clickable{cursor:pointer}
         s.session = null;
         s.serverContext = null;
         s.authUi = "unauthenticated";
+        this._resetLiveNotices();
         s.screen = "login";
         s.userMenuOpen = false;
         this._purgeLegacyAuthStorage();
@@ -1991,22 +2006,23 @@ table.data tr.clickable{cursor:pointer}
       if (action === "toggle-notif") {
         s.notifOpen = !s.notifOpen;
         this._render();
+        if(s.notifOpen)this._loadLiveNotifications();
         return;
       }
       if (action === "read-notif") {
-        var n = s.notifications.find(function (x) {
+        var n = this._noticeRows().find(function (x) {
           return x.id === id;
         });
         if (n) n.read = true;
-        this._persist();
+        this._persistNoticeReads();
         this._render();
         return;
       }
       if (action === "mark-all-read") {
-        s.notifications.forEach(function (x) {
+        this._noticeRows().forEach(function (x) {
           x.read = true;
         });
-        this._persist();
+        this._persistNoticeReads();
         this._render();
         return;
       }
@@ -3291,7 +3307,7 @@ table.data tr.clickable{cursor:pointer}
 
     _renderApp() {
       var s = this._state;
-      var unread = s.notifications.filter(function (n) {
+      var unread = this._noticeRows().filter(function (n) {
         return !n.read;
       }).length;
       var nav = this._navItems()
@@ -3393,7 +3409,7 @@ table.data tr.clickable{cursor:pointer}
     }
 
     _renderNotifPanel() {
-      var items = this._state.notifications
+      var items = this._noticeRows()
         .map(function (n) {
           return (
             '<div class="notif-item' +
@@ -3414,7 +3430,7 @@ table.data tr.clickable{cursor:pointer}
         '<div class="notif-panel" data-notif-panel role="dialog" aria-label="Bildirimler">' +
         '<div class="panel-h" style="padding:12px 14px;margin:0"><h3>Bildirimler</h3>' +
         '<button type="button" class="btn sm" data-action="mark-all-read">Tümünü okundu say</button></div>' +
-        items +
+        this._noticeStatus() + items + this._noticeControls() +
         "</div>"
       );
     }
@@ -4102,10 +4118,59 @@ table.data tr.clickable{cursor:pointer}
       );
     }
 
+    _noticeRows() {return this._state?.authUi==='active_supplier'&&this._noticeScope?(this._liveNotices||[]):[];}
+
+    _resetLiveNotices() {this._noticeEpoch=(this._noticeEpoch||0)+1;this._noticeScope='';this._liveNotices=[];this._noticeNext=null;this._noticeLoading=false;this._noticeError='';this._noticeLoaded=false;}
+
+    _noticeReadKey() {return 'pz-live-notice-reads:'+this._noticeScope;}
+
+    _persistNoticeReads() {
+      if(!this._noticeScope)return;
+      var previous=loadLS(this._noticeReadKey(),[]);if(!Array.isArray(previous))previous=[];
+      var ids=new Set(previous);this._noticeRows().filter(n=>n.read).forEach(n=>ids.add(n.id));
+      saveLS(this._noticeReadKey(),Array.from(ids).slice(-500));
+    }
+
+    _noticeStatus() {
+      if(this._noticeLoading)return '<p role="status">Bildirimler yükleniyor…</p>';
+      if(this._noticeError)return '<p role="alert">'+esc(this._noticeError)+'</p>';
+      if(this._noticeLoaded&&!this._noticeRows().length)return '<p role="status">Henüz bildirim yok.</p>';
+      return '';
+    }
+
+    _noticeControls() {
+      var disabled=this._noticeLoading?' disabled':'';
+      return '<div class="toolbar"><button type="button" class="btn sm" data-action="reload-live-notices"'+disabled+'>'+(this._noticeError?'Tekrar dene':'Yenile')+'</button>'+(this._noticeNext!=null?'<button type="button" class="btn sm" data-action="more-live-notices"'+disabled+'>Daha fazla bildirim</button>':'')+'</div>';
+    }
+
+    _renderNoticeChange() {
+      if(!this._root||this._state.authUi!=='active_supplier')return;
+      if(this._state.route==='notifications'||this._state.notifOpen){this._render();return;}
+      // Polling must not rebuild unrelated forms or remove their focused inputs.
+      var button=this._root.querySelector('[data-action="toggle-notif"]');
+      if(button){button.querySelector('.badge')?.remove();var unread=this._noticeRows().filter(n=>!n.read).length;if(unread)button.insertAdjacentHTML('beforeend','<span class="badge">'+unread+'</span>');}
+    }
+
+    async _loadLiveNotifications(append=false) {
+      if(!this._noticeScope||this._state?.authUi!=='active_supplier'||this._httpDemoSession||this._noticeLoading||!this.isConnected)return;
+      if(append&&this._noticeNext==null)return;
+      var scope=this._noticeScope,epoch=this._noticeEpoch,offset=append?this._noticeNext:0;
+      this._noticeLoading=true;this._noticeError='';this._renderNoticeChange();
+      try{
+        var result=await this._pricedQuoteApi('getSupplierNotifications',{offset:offset});
+        if(epoch!==this._noticeEpoch||scope!==this._noticeScope||this._state.authUi!=='active_supplier'||!this.isConnected)return;
+        if(!result||!Array.isArray(result.items)||!(result.nextOffset===null||Number.isSafeInteger(result.nextOffset)&&result.nextOffset>offset))throw Error('Invalid notification page');
+        var stored=loadLS(this._noticeReadKey(),[]),read=new Set(Array.isArray(stored)?stored:[]);
+        var items=result.items.map(n=>({id:String(n.id),listingKey:n.listingKey,title:String(n.title||''),body:String(n.message||''),time:n.createdAt?new Date(n.createdAt).toLocaleString('tr-TR'):'',read:read.has(String(n.id))}));
+        var rows=append?this._noticeRows().concat(items):items;this._liveNotices=Array.from(new Map(rows.map(n=>[n.id,n])).values());this._noticeNext=result.nextOffset;this._noticeLoaded=true;
+      }catch(err){if(epoch===this._noticeEpoch&&scope===this._noticeScope)this._noticeError='Bildirimler sunucudan alınamadı. Tekrar deneyin.';}
+      finally{if(epoch===this._noticeEpoch&&scope===this._noticeScope){this._noticeLoading=false;this._renderNoticeChange();}}
+    }
+
     _renderNotificationsPage() {
       return (
         '<div class="panel"><div class="panel-h"><h3>Bildirim merkezi</h3><button type="button" class="btn sm" data-action="mark-all-read">Tümünü okundu say</button></div>' +
-        this._state.notifications
+        '<p class="muted">Ürün onayları ve düzenleme gerekçeleri sunucudan alınır.</p>'+this._noticeStatus()+this._noticeRows()
           .map(function (n) {
             return (
               '<div class="notif-item' +
@@ -4122,7 +4187,7 @@ table.data tr.clickable{cursor:pointer}
             );
           })
           .join("") +
-        "</div>"
+        this._noticeControls()+"</div>"
       );
     }
 
