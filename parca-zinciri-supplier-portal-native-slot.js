@@ -4145,7 +4145,8 @@ table.data tr.clickable{cursor:pointer}
 
     _renderNoticeChange() {
       if(!this._root||this._state.authUi!=='active_supplier')return;
-      if(this._state.route==='notifications'||this._state.notifOpen){this._render();return;}
+      if(this._state.notifOpen){var panel=this._root.querySelector('[data-notif-panel]');if(panel)panel.outerHTML=this._renderNotifPanel();}
+      else if(this._state.route==='notifications'){this._render();return;}
       // Polling must not rebuild unrelated forms or remove their focused inputs.
       var button=this._root.querySelector('[data-action="toggle-notif"]');
       if(button){button.querySelector('.badge')?.remove();var unread=this._noticeRows().filter(n=>!n.read).length;if(unread)button.insertAdjacentHTML('beforeend','<span class="badge">'+unread+'</span>');}
