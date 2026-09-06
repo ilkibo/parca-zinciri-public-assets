@@ -1273,12 +1273,16 @@ table.data tr.clickable{cursor:pointer}
 
     connectedCallback() {
       this.setAttribute('data-pz-notifications-version','live-1');
+      this.setAttribute('data-pz-overview-version','server-inventory-1');
       if(!this._noticeFocusRefresh)this._noticeFocusRefresh=()=>this._loadLiveNotifications();
       window.addEventListener('focus',this._noticeFocusRefresh);
       if(!this._noticePoll)this._noticePoll=setInterval(()=>{if(!document.hidden&&this._noticeRows().length<=30)this._loadLiveNotifications();},30000);
-      if(!this._inventoryFocusRefresh)this._inventoryFocusRefresh=()=>{if(this._state?.authUi==='active_supplier'&&this._state.route==='inventory')this._loadLiveInventory();};
+      if(!this._inventoryFocusRefresh)this._inventoryFocusRefresh=()=>{if(['overview','inventory'].includes(this._state?.route))this._loadLiveInventory();};
       window.addEventListener('focus',this._inventoryFocusRefresh);
-      if (this.__mounted) return;
+      if (this.__mounted) {
+        this._applyServerAuthState(this.getAttribute('pzstate')||this.getAttribute('data-pz-state'));
+        return;
+      }
       this.__mounted = true;
       ensureFonts();
       this._applyTheme(readStoredTheme(), false);
@@ -1312,6 +1316,7 @@ table.data tr.clickable{cursor:pointer}
     }
 
     disconnectedCallback() {
+      this._resetLiveInventory();
       if(this._inventoryFocusRefresh)window.removeEventListener('focus',this._inventoryFocusRefresh);
       if(this._noticeFocusRefresh)window.removeEventListener('focus',this._noticeFocusRefresh);
       clearInterval(this._noticePoll);this._noticePoll=null;this._noticeEpoch=(this._noticeEpoch||0)+1;this._noticeLoading=false;
@@ -1417,7 +1422,9 @@ table.data tr.clickable{cursor:pointer}
       if (this._httpDemoSession && authUi !== "active_supplier") {
         return;
       }
-      if(authUi!=='active_supplier'||ctx?.companyId!==this._state.serverContext?.companyId){this._liveInventory=[];this._liveInventoryIdentity=null;this._inventoryError='';}
+      var inventoryScope=authUi==='active_supplier'&&ctx&&ctx.companyId?String(ctx.companyId)+':'+String(ctx.role||''):'';
+      var inventoryChanged=inventoryScope!==this._inventoryScope;
+      if(inventoryChanged){this._resetLiveInventory();this._inventoryScope=inventoryScope;}
       var noticeScope=authUi==='active_supplier'&&ctx&&ctx.companyId?String(ctx.companyId)+':'+String(ctx.role||''):'';
       var noticeChanged=noticeScope!==this._noticeScope;
       if(noticeChanged){this._noticeScope=noticeScope;this._noticeEpoch=(this._noticeEpoch||0)+1;this._liveNotices=[];this._noticeNext=null;this._noticeLoading=false;this._noticeError='';this._noticeLoaded=false;}
@@ -1454,6 +1461,7 @@ table.data tr.clickable{cursor:pointer}
       }
       if (this._root) this._render();
       if(noticeChanged&&noticeScope)this._loadLiveNotifications();
+      if(inventoryChanged&&inventoryScope)this._loadLiveInventory();
     }
 
     _applyTheme(theme, persist) {
@@ -1698,13 +1706,13 @@ table.data tr.clickable{cursor:pointer}
     }
 
     _setRoute(route) {
-      if(route==='inventory')this._loadLiveInventory();
       this._state.route = route;
       this._state.sideOpen = false;
       this._state.notifOpen = false;
       this._state.drawer = null;
       this._state.modal = null;
       this._render();
+      if(route==='inventory'||route==='overview')this._loadLiveInventory();
       if(route==='notifications')this._loadLiveNotifications();
     }
 
@@ -1910,6 +1918,7 @@ table.data tr.clickable{cursor:pointer}
         s.serverContext = null;
         s.authUi = "unauthenticated";
         this._resetLiveNotices();
+        this._resetLiveInventory();
         s.loginError = null;
         s.screen = "login";
         s.userMenuOpen = false;
@@ -1963,6 +1972,7 @@ table.data tr.clickable{cursor:pointer}
         s.serverContext = null;
         s.authUi = "unauthenticated";
         this._resetLiveNotices();
+        this._resetLiveInventory();
         s.screen = "login";
         s.userMenuOpen = false;
         this._purgeLegacyAuthStorage();
@@ -3360,15 +3370,15 @@ table.data tr.clickable{cursor:pointer}
         "</button>" +
         '<div class="user-chip-wrap">' +
         '<button type="button" class="user-chip" data-action="toggle-user-menu" aria-haspopup="true">' +
-        '<div class="av">ME</div><div class="meta"><strong>' +
-        esc((s.session && s.session.companyName) || s.profile.companyName) +
+        '<div class="av">' + esc(this._liveCompanyName().split(/\s+/).slice(0,2).map(function(word){return word.charAt(0);}).join('')) + '</div><div class="meta"><strong>' +
+        esc(this._liveCompanyName()) +
         "</strong><span>" +
         esc((s.session && s.session.email) || "") +
         "</span></div></button>" +
         (s.userMenuOpen
           ? '<div class="panel user-menu">' +
             "<strong>" +
-            esc((s.session && s.session.companyName) || "Tedarikçi") +
+            esc(this._liveCompanyName()) +
             "</strong>" +
             "<div style=\"opacity:.7;margin:4px 0 10px;font-size:12px\">" +
             esc((s.session && s.session.email) || "") +
@@ -3461,46 +3471,28 @@ table.data tr.clickable{cursor:pointer}
     }
 
     _renderOverview() {
-      var reqs = this._state.requests.filter(function (r) {
-        return r.matched;
-      }).slice(0, 4);
-      var acts = this._state.activities
-        .slice(0, 6)
-        .map(function (a) {
-          return (
-            "<li><span>" + esc(a.text) + "</span><span class='dim'>" + esc(a.time) + "</span></li>"
-          );
-        })
-        .join("");
-      var cards = reqs
-        .map(function (r) {
-          return this._requestCard(r, true);
-        }, this)
-        .join("");
-      return (
-        '<div class="eyebrow">Operasyon özeti</div>' +
-        '<h2 class="h2" style="margin-top:8px">' +
-        esc(greeting()) +
-        "</h2>" +
-        '<p class="muted" style="margin-top:6px">RFQ Command Center — öncelikli talepler, kalan süre ve birebir eşleşme kanıtı</p>' +
-        '<div class="stats">' +
-        this._stat("Yeni Talepler", "5", "Uzmanlık eşleşmesi") +
-        this._stat("Teklif Bekleyenler", "3", "Yanıt süresi kritik") +
-        this._stat("Gönderilen Teklifler", "8", "Son 30 gün") +
-        this._stat("Sonuçlanan İşlemler", "12", "Kabul + sipariş") +
-        "</div>" +
-        '<div class="split"><section class="panel"><div class="panel-h"><h3>Öncelikli talepler</h3>' +
-        '<button type="button" class="btn sm" data-action="nav" data-route="requests">Tümünü gör</button></div>' +
-        cards +
-        '</section><div><section class="panel"><div class="panel-h"><h3>Son aktiviteler</h3></div><ul class="activity">' +
-        acts +
-        '</ul></section><section class="panel"><div class="panel-h"><h3>Hızlı işlemler</h3></div><div class="quick">' +
-        '<button type="button" class="btn" data-action="quick" data-quick="quote">Yeni Teklif Hazırla</button>' +
-        '<button type="button" class="btn" data-action="quick" data-quick="stock">Stoğa Parça Ekle</button>' +
-        '<button type="button" class="btn" data-action="quick" data-quick="bulk">Excel/CSV Yükle</button>' +
-        '<button type="button" class="btn" data-action="quick" data-quick="profile">Firma Profilini Güncelle</button>' +
-        "</div></section></div></div>"
-      );
+      var rows=this._liveInventory||[];
+      var ready=this._inventoryLoaded&&!this._inventoryError&&!this._inventoryLoading;
+      var count=function(status){return ready?rows.filter(function(p){return p.status===status;}).length:'—';};
+      var status=this._inventoryError?'<p role="alert">'+esc(this._inventoryError)+'</p>':
+        !ready?'<p role="status">Ürün özeti sunucudan yükleniyor…</p>':
+        rows.length?'<p>Bu özet, hesabınıza ait sunucu kayıtlarından hesaplanır.</p>':'<p>Henüz ürün kaydınız yok.</p>';
+      return '<div class="eyebrow">Operasyon özeti</div><h2 class="h2" style="margin-top:8px">'+esc(greeting())+'</h2>'+
+        '<p>'+esc(this._liveCompanyName())+'</p>'+status+
+        '<button class="btn sm" data-action="reload-live-inventory"'+(this._inventoryLoading?' disabled':'')+'>Özeti yenile</button>'+
+        '<div class="stats">'+this._stat('Toplam ürün',ready?rows.length:'—','Tüm ürün kayıtları')+
+        this._stat('Onay bekleyen',count('pending'),'İncelemedeki ürünler')+
+        this._stat('Onaylanan',count('approved'),'Onaylı ürünler')+
+        this._stat('Reddedilen',count('rejected'),'Düzenleme gereken ürünler')+'</div>'+
+        '<section class="panel"><div class="panel-h"><h3>Talep, teklif ve sipariş özeti</h3></div>'+
+        '<p>Bu bölümün canlı veri bağlantısı henüz tamamlanmadı. Talep, teklif, satış veya aktivite sayısı gösterilmiyor.</p></section>'+
+        '<section class="panel"><div class="panel-h"><h3>Hızlı erişim</h3></div><div class="quick">'+
+        '<button class="btn" data-action="nav" data-route="inventory">Stok ve Katalog</button>'+
+        '<button class="btn" data-action="nav" data-route="notifications">Bildirimler</button></div></section>';
+    }
+
+    _liveCompanyName() {
+      return this._liveInventoryIdentity?.companyName || this._state.serverContext?.companyName || 'Tedarikçi hesabı';
     }
 
     _stat(lab, val, sub) {
@@ -3816,18 +3808,32 @@ table.data tr.clickable{cursor:pointer}
       return this._renderLiveInventory();
     }
 
+    _resetLiveInventory() {
+      this._inventoryEpoch=(this._inventoryEpoch||0)+1;
+      this._inventoryScope='';this._liveInventory=[];this._liveInventoryIdentity=null;
+      this._inventoryError='';this._inventoryLoading=false;this._inventoryLoaded=false;
+    }
+
     async _loadLiveInventory() {
-      if(this._inventoryLoading)return;
+      if(this._inventoryLoading||!this._inventoryScope||this._state?.authUi!=='active_supplier'||this._httpDemoSession||!this.isConnected)return;
       this._inventoryLoading=true;this._inventoryError='';
-      var company=this._state.serverContext && this._state.serverContext.companyId;
+      var scope=this._inventoryScope,epoch=this._inventoryEpoch;
+      var current=()=>this.isConnected&&epoch===this._inventoryEpoch&&scope===this._inventoryScope&&this._state?.authUi==='active_supplier';
+      if(['overview','inventory'].includes(this._state.route))this._render();
       try{
         var items=[],offset=0,result;
-        do{result=await this._pricedQuoteApi('getMobileInventory',{offset:offset});items=items.concat(result.items||[]);offset=result.nextOffset;}while(offset!=null);
-        if(company!==(this._state.serverContext && this._state.serverContext.companyId))return;
+        do{
+          result=await this._pricedQuoteApi('getMobileInventory',{offset:offset});
+          if(!current())return;
+          if(!result||!Array.isArray(result.items))throw new Error('INVALID_INVENTORY_RESPONSE');
+          items=items.concat(result.items);var next=result.nextOffset;
+          if(next!=null&&(!Number.isInteger(next)||next<=offset))throw new Error('INVALID_INVENTORY_CURSOR');
+          offset=next;
+        }while(offset!=null);
         this._liveInventory=items;this._liveInventoryIdentity=result.identity;
-        if(result.identity && result.identity.companyName)this._state.profile.companyName=result.identity.companyName;
-      }catch(err){this._liveInventory=[];this._inventoryError='Ürünler sunucudan okunamadı. Tekrar deneyin.';}
-      finally{this._inventoryLoading=false;if(this._state.route==='inventory')this._render();}
+        this._inventoryLoaded=true;
+      }catch(err){if(current()){this._liveInventory=[];this._liveInventoryIdentity=null;this._inventoryLoaded=false;this._inventoryError='Ürünler sunucudan okunamadı. Tekrar deneyin.';}}
+      finally{if(current()){this._inventoryLoading=false;if(['overview','inventory'].includes(this._state.route))this._render();}}
     }
 
     _renderLiveInventory() {
