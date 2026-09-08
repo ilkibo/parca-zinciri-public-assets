@@ -1,3 +1,54 @@
+// <pz-euro-rate>
+// Shared informational TCMB strip; inlined in Wix custom-element bundles.
+(function () {
+  'use strict';
+  if (customElements.get('pz-euro-rate')) return;
+  var cached = null, pending = null;
+  async function latest() {
+    if (cached && Date.now() - cached.checkedAt < 60000) return cached;
+    if (pending) return pending;
+    pending = (async function () {
+      var controller = new AbortController();
+      var timer = setTimeout(function () {controller.abort();}, 12000);
+      try {
+        var response = await fetch('https://www.parcazinciri.com/_functions/tcmbEuro', {credentials:'omit',signal:controller.signal});
+        if (!response.ok) throw new Error('unavailable');
+        var body = await response.json(), data = body.data;
+        if (!body.ok || !data || data.source !== 'TCMB' || data.type !== 'ForexSelling' ||
+            !Number.isSafeInteger(data.rateScaled) || data.rateScaled <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(data.date) ||
+            !Number.isFinite(Date.parse(data.date)) || Date.now()-Date.parse(data.date)>10*86400000 || Date.parse(data.date)>Date.now()+86400000) throw new Error('invalid');
+        cached = {rateScaled:data.rateScaled,date:data.date,checkedAt:Date.now()};
+        return cached;
+      } finally {clearTimeout(timer);pending=null;}
+    })();
+    return pending;
+  }
+  class EuroRate extends HTMLElement {
+    constructor() {super();this.attachShadow({mode:'open'});}
+    connectedCallback() {
+      this.shadowRoot.innerHTML = '<style>:host{display:block;flex:none;font-family:inherit;color:#3c3935;background:#faf8f5;border-bottom:1px solid #e9e2d9}.bar{min-height:32px;padding:5px 24px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px 16px;flex-wrap:wrap;font-size:12px;line-height:1.5;letter-spacing:.01em}.label{display:inline-flex;align-items:center;gap:7px;font-weight:500}.dot{width:5px;height:5px;border-radius:50%;background:#ff6b00}strong{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#24211e}.meta{font-size:11px;color:#6b6259}a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}a:focus-visible{outline:2px solid #ff6b00;outline-offset:3px}@media(max-width:600px){.bar{padding:6px 12px;gap:2px 10px}.meta{flex-basis:100%;text-align:center}}</style><div class="bar" role="status" aria-live="polite"><a class="label" href="https://www.tcmb.gov.tr/kurlar/today.xml" target="_blank" rel="noopener noreferrer" aria-label="TCMB Euro döviz satış kuru kaynağı"><span class="dot" aria-hidden="true"></span>TCMB EURO</a><strong>Kur yükleniyor…</strong><span class="meta">Döviz satış · Bilgilendirme amaçlı</span></div>';
+      this.refresh();
+      this.timer=setInterval(()=>{if(!document.hidden)this.refresh();},60000);
+      this.onVisible=()=>{if(!document.hidden)this.refresh();};
+      document.addEventListener('visibilitychange',this.onVisible);
+    }
+    disconnectedCallback(){clearInterval(this.timer);document.removeEventListener('visibilitychange',this.onVisible);}
+    async refresh(){
+      try {
+        var data=await latest();if(!this.isConnected)return;
+        this.shadowRoot.querySelector('strong').textContent='1 EUR = '+(data.rateScaled/10000).toLocaleString('tr-TR',{minimumFractionDigits:4,maximumFractionDigits:4})+' TL';
+        this.shadowRoot.querySelector('.meta').textContent='Döviz satış · Son yayımlanan: '+data.date.split('-').reverse().join('.')+' · Bilgilendirme amaçlı';
+      } catch (_) {
+        if(!this.isConnected)return;
+        this.shadowRoot.querySelector('strong').textContent='Kur şu an alınamıyor';
+        this.shadowRoot.querySelector('.meta').textContent='TCMB kaynağına erişmek için bağlantıyı kullanın · Bilgilendirme amaçlı';
+      }
+    }
+  }
+  customElements.define('pz-euro-rate',EuroRate);
+})();
+
+// </pz-euro-rate>
 /* ============================================================
    PARÇA ZİNCİRİ — parca-zinciri-supplier-portal
    B2B supplier operations portal — FULL VIEWPORT APP (not modal)
@@ -3383,7 +3434,7 @@ table.data tr.clickable{cursor:pointer}
         "</div></div>" +
         (s.notifOpen ? this._renderNotifPanel() : "") +
         "</header>" +
-        '<main class="main"><div class="main-inner" data-main>' +
+        '<main class="main"><pz-euro-rate style="margin-bottom:18px;border-radius:8px;overflow:hidden"></pz-euro-rate><div class="main-inner" data-main>' +
         this._renderRoute() +
         "</div></main>" +
         '<nav class="bottom-nav" aria-label="Mobil gezinme">' +
