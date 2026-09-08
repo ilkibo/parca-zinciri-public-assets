@@ -4680,34 +4680,36 @@ table.data tr.clickable{cursor:pointer}
 
     _syncWebProductFields(form, changed) {
       const fields = form.elements, catalog = this._webMachineCatalog;
+      const kind = fields.listingType.value, isMachine = kind === 'machine';
+      form.querySelectorAll('[data-product-kind]').forEach(box => {
+        box.hidden = !box.dataset.productKind.split(' ').includes(kind);
+        box.querySelectorAll('input,select,textarea').forEach(field => field.disabled = box.hidden);
+      });
       const options = rows => '<option value="">Seçiniz</option>' + rows.map(row => '<option value="'+esc(row.id)+'">'+esc(row.name)+'</option>').join('');
       if (catalog && ['machineType','machineBrandId'].includes(changed)) {
         if (changed === 'machineType') {
           fields.machineBrandId.innerHTML = options(catalog.brandsByType[fields.machineType.value] || []);
-          fields.machineBrandId.disabled = !fields.machineType.value;
         }
         const rows = catalog.modelsByTypeAndBrand[fields.machineType.value]?.[fields.machineBrandId.value] || [{id:catalog.otherModelId,name:'Listede Yok / Diğer'}];
         fields.machineModelId.innerHTML = options(rows);
-        fields.machineModelId.disabled = !fields.machineBrandId.value;
       }
+      fields.machineBrandId.disabled = !isMachine || !catalog || !fields.machineType.value;
+      fields.machineModelId.disabled = !isMachine || !catalog || !fields.machineBrandId.value;
       for (const [selectName,manualName,other] of [['machineBrandId','manualBrandName',catalog?.otherBrandId],['machineModelId','manualModelName',catalog?.otherModelId]]) {
-        const manual = !!other && fields[selectName].value === other;
+        const manual = isMachine && !!other && fields[selectName].value === other;
         fields[manualName].closest('.field').hidden = !manual;
         fields[manualName].required = manual;
         fields[manualName].disabled = !manual;
         if (!manual) fields[manualName].value = '';
       }
-      const kind = fields.listingType.value;
       fields.equipmentWorkDescription.required = kind === 'equipment' && fields.equipmentCondition.value === 'original_reconditioned';
-      form.querySelectorAll('[data-product-kind]').forEach(box => {
-        box.hidden = box.dataset.productKind !== kind;
-        box.querySelectorAll('input,select,textarea').forEach(field => field.disabled = box.hidden);
-      });
-      for (const [flag,name] of [['productCodeUnknown','productCode'],['oemUnknown','oem']]) {
-        const off = fields[flag].checked || (name === 'oem' && kind !== 'part');
-        fields[name].disabled = off; fields[name].required = !off;
-        if (off) fields[name].value = '';
-      }
+      const codeOff = isMachine || fields.productCodeUnknown.checked;
+      fields.productCode.disabled = codeOff; fields.productCode.required = !codeOff;
+      if (fields.productCodeUnknown.checked) fields.productCode.value = '';
+      const noun = {part:'Parça',equipment:'Ekipman',machine:'Makine'}[kind];
+      this._root.querySelector('#web-product-title').textContent = 'Yeni '+noun+' Ekle';
+      form.querySelector('label[for="web-images"]').textContent = noun+' fotoğrafları (1–6 adet)';
+      form.querySelector('[type="submit"]').textContent = {part:'Parçayı',equipment:'Ekipmanı',machine:'Makineyi'}[kind]+' kaydet ve onaya gönder';
     }
 
     _renderWebProductPage() {
@@ -4720,22 +4722,23 @@ table.data tr.clickable{cursor:pointer}
         select('partCondition','Parça durumu',[['new_boxed','Yeni, kutulu'],['new_unboxed','Yeni, kutusuz'],['used_good','Çıkma, iyi durumda'],['repaired_working_good','Revizyonlu, çalışır durumda']])+'</div>'+
         '<div class="grid-2" data-product-kind="equipment" hidden>'+select('equipmentType','Ekipman türü',[['engine','Motor'],['transmission','Şanzıman'],['front_differential','Ön diferansiyel'],['rear_differential','Arka diferansiyel'],['operator_cabin','Operatör kabini'],['chassis','Şase'],['hydraulic_cylinder','Hidrolik silindir']],'disabled')+
         select('equipmentCondition','Ekipman durumu',[['new_original','Sıfır, orijinal'],['original_reconditioned','Orijinal, revizyonlu']],'disabled')+'<div class="field"><label for="web-equipmentWorkDescription">Revizyonda yapılan işlemler</label><textarea id="web-equipmentWorkDescription" name="equipmentWorkDescription" maxlength="2000" disabled></textarea></div></div>'+
-        '<div class="grid-2" data-product-kind="machine" hidden>'+input('modelYear','Model yılı','number','min="1900" max="'+new Date().getFullYear()+'" disabled')+'<div class="field"><label for="web-machineModificationSummary">Yapılan işlemler / değişiklik özeti</label><textarea id="web-machineModificationSummary" name="machineModificationSummary" required maxlength="2000" disabled></textarea></div></div>'+
-        '<div class="grid-2">'+input('productCode','Parça kodu','text','maxlength="80"')+input('stockQuantity','Stok adedi','number','min="1" step="1"')+input('priceEur','Birim fiyat (Euro / EUR)','number','min="0.01" step="0.01"')+'</div><label class="check"><input name="productCodeUnknown" type="checkbox">Diğer — parça kodu elimde yok</label>'+
-        '<h3>Makine ve uyumluluk</h3><p role="status" data-catalog-status>Makine kataloğu yükleniyor…</p><button type="button" class="btn sm" data-action="reload-product-catalog">Kataloğu yeniden yükle</button><div class="grid-2">'+
-        select('machineType','Makine türü',[['','Seçiniz'],['excavator','Ekskavatör'],['wheel_loader','Loader / Lastikli Yükleyici'],['telehandler','Telehandler / Teleskopik Yükleyici'],['forklift','Forklift'],['backhoe_loader','Beko Loder / Kazıcı Yükleyici'],['road_roller','Yol Silindiri'],['heavy_offroad_truck','Ağır Yük Off-Road / Kaya Kamyonu']])+
+        '<div data-product-kind="machine" hidden><h3>Makine bilgileri</h3><p role="status" data-catalog-status>Makine kataloğu yükleniyor…</p><button type="button" class="btn sm" data-action="reload-product-catalog">Kataloğu yeniden yükle</button><div class="grid-2">'+
+        select('machineType','Makine türü',[['','Seçiniz'],['excavator','Ekskavatör'],['wheel_loader','Loader / Lastikli Yükleyici'],['telehandler','Telehandler / Teleskopik Yükleyici'],['forklift','Forklift'],['backhoe_loader','Beko Loder / Kazıcı Yükleyici'],['road_roller','Yol Silindiri'],['heavy_offroad_truck','Ağır Yük Off-Road / Kaya Kamyonu']],'disabled')+
         select('machineBrandId','Makine markası',[['','Önce makine türünü seçin']],'disabled')+select('machineModelId','Makine modeli',[['','Önce marka seçin']],'disabled')+
-        '<div class="field" hidden><label for="web-manualBrandName">Diğer marka adı</label><input id="web-manualBrandName" name="manualBrandName" maxlength="120" disabled></div><div class="field" hidden><label for="web-manualModelName">Diğer model adı</label><input id="web-manualModelName" name="manualModelName" maxlength="120" disabled></div>'+input('machineSerialNumber','Makine seri numarası','text','maxlength="80"')+'</div>'+
-        '<div data-product-kind="part">'+input('oem','OEM / referans numarası','text','maxlength="80"')+'<label class="check"><input name="oemUnknown" type="checkbox">OEM / referans numarası bilinmiyor</label></div><div class="field"><label for="web-description">Açıklama (isteğe bağlı)</label><textarea id="web-description" name="description" maxlength="4000"></textarea></div>'+
-        '<h3>Fotoğraflar</h3><div class="field"><label for="web-images">Parça fotoğrafları (1–6 adet)</label><input id="web-images" name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple required></div><p class="muted">Fiyatlar yalnız Euro olarak kaydedilir. Parçanız kayıttan sonra Parça Zinciri onayına gönderilir.</p><p role="status" data-web-status></p><button class="btn primary" type="submit">Parçayı kaydet ve onaya gönder</button></form></section>';
+        '<div class="field" hidden><label for="web-manualBrandName">Diğer marka adı</label><input id="web-manualBrandName" name="manualBrandName" maxlength="120" disabled></div><div class="field" hidden><label for="web-manualModelName">Diğer model adı</label><input id="web-manualModelName" name="manualModelName" maxlength="120" disabled></div>'+input('machineSerialNumber','Makine seri numarası','text','maxlength="80" disabled')+
+        input('modelYear','Model yılı','number','min="1900" max="'+new Date().getFullYear()+'" disabled')+'<div class="field"><label for="web-machineModificationSummary">Yapılan işlemler / değişiklik özeti</label><textarea id="web-machineModificationSummary" name="machineModificationSummary" required maxlength="2000" disabled></textarea></div></div></div>'+
+        '<div data-product-kind="part equipment">'+input('productCode','Parça kodu','text','maxlength="80"')+'<label class="check"><input name="productCodeUnknown" type="checkbox">Parça no elimde yok</label></div>'+
+        '<h3>Stok ve fiyat</h3><div class="grid-2">'+input('stockQuantity','Stok adedi','number','min="1" step="1"')+input('priceEur','Birim fiyat (Euro / EUR)','number','min="0.01" step="0.01"')+'</div>'+
+        '<div class="field"><label for="web-description">Açıklama (isteğe bağlı)</label><textarea id="web-description" name="description" maxlength="4000"></textarea></div>'+
+        '<h3>Fotoğraflar</h3><div class="field"><label for="web-images">Parça fotoğrafları (1–6 adet)</label><input id="web-images" name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple required></div><p class="muted">Fiyatlar yalnız Euro olarak kaydedilir. İlanınız kayıttan sonra Parça Zinciri onayına gönderilir.</p><p role="status" data-web-status></p><button class="btn primary" type="submit">Parçayı kaydet ve onaya gönder</button></form></section>';
     }
 
     async _saveWebProduct(form) {
       if(this._webSaving)return;
-      const values={...Object.fromEntries(new FormData(form)),productCodeUnknown:form.elements.productCodeUnknown.checked,oemUnknown:form.elements.oemUnknown.checked}, files=Array.from(form.images.files);
+      const values={...Object.fromEntries(new FormData(form)),productCodeUnknown:form.elements.listingType.value === 'machine' || form.elements.productCodeUnknown.checked}, files=Array.from(form.images.files);
       const status=form.querySelector('[data-web-status]'),button=form.querySelector('[type="submit"]');
       if(files.length<1||files.length>6||files.some(f=>!['image/jpeg','image/png','image/webp'].includes(f.type)||f.size>10*1024*1024)){status.textContent='1–6 JPG, PNG veya WebP fotoğraf seçin; her biri en fazla 10 MB.';return;}
-      if(!this._webMachineCatalog || !values.machineBrandId || !values.machineModelId){status.textContent='Makine kataloğunu yükleyip marka ve model seçin.';return;}
+      if(values.listingType === 'machine' && (!this._webMachineCatalog || !values.machineBrandId || !values.machineModelId)){status.textContent='Makine kataloğunu yükleyip marka ve model seçin.';return;}
       this._webSaving=true;button.disabled=true;
       const scope=this._inventoryScope;
       try {
@@ -4747,12 +4750,12 @@ table.data tr.clickable{cursor:pointer}
           await this._webCall('uploadConfirm',ref);refs.push(ref.ticketId);
         }
         if(scope!==this._inventoryScope)throw Error('Oturum değişti. Yeniden giriş yapın.');
-        status.textContent='Parça sunucuya kaydediliyor…';
+        status.textContent='İlan sunucuya kaydediliyor…';
         this._webProductKey=this._webProductKey||crypto.randomUUID();
         const result=await this._webCall('create',{...values,currency:'EUR',priceEur:values.priceEur,stockQuantity:Number(values.stockQuantity),mediaIds:refs,idempotencyKey:this._webProductKey});
-        if(!result?.listingKey||!['pending','approved'].includes(result.status))throw Error('Parça kaydı doğrulanamadı.');
+        if(!result?.listingKey||!['pending','approved'].includes(result.status))throw Error('İlan kaydı doğrulanamadı.');
         if(scope!==this._inventoryScope)return;
-        this._webProductKey=null;this._state.modal=null;this._state.route="inventory";this._render();await this._loadLiveInventory();this._toast('Parça kaydedildi','Parça Zinciri onayına gönderildi.');
+        this._webProductKey=null;this._state.modal=null;this._state.route="inventory";this._render();await this._loadLiveInventory();this._toast('İlan kaydedildi','Parça Zinciri onayına gönderildi.');
       }catch(e){status.textContent=e.message||'Kayıt tamamlanamadı. Tekrar deneyin.';}
       finally{this._webSaving=false;button.disabled=false;}
     }
