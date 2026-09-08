@@ -872,6 +872,9 @@ a{color:inherit;text-decoration:none}
 .btn.link{background:transparent;border:0;color:var(--accent);min-height:auto;padding:0;font-size:13px}
 .btn.sm{min-height:36px;padding:0 12px;font-size:13px}
 .btn.block{width:100%}
+.overview-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:18px 0}
+.btn.overview-add{min-height:54px;min-width:232px;padding:0 26px;font-size:16px;gap:10px}
+@media(max-width:640px){.btn.overview-add{width:100%;min-width:0}}
 .btn:disabled{opacity:.55;cursor:not-allowed}
 
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:14px}
@@ -3514,7 +3517,8 @@ table.data tr.clickable{cursor:pointer}
         rows.length?'<p>Bu özet, hesabınıza ait sunucu kayıtlarından hesaplanır.</p>':'<p>Henüz ürün kaydınız yok.</p>';
       return '<div class="eyebrow">Operasyon özeti</div><h2 class="h2" style="margin-top:8px">'+esc(greeting())+'</h2>'+
         '<p>'+esc(this._liveCompanyName())+'</p>'+status+
-        '<button class="btn sm" data-action="reload-live-inventory"'+(this._inventoryLoading?' disabled':'')+'>Özeti yenile</button>'+
+        '<div class="overview-actions"><button type="button" class="btn primary overview-add" data-action="add-inventory"><span aria-hidden="true">＋</span>Yeni Parça Ekle</button>'+
+        '<button class="btn sm" data-action="reload-live-inventory"'+(this._inventoryLoading?' disabled':'')+'>Özeti yenile</button></div>'+
         '<div class="stats">'+this._stat('Toplam ürün',ready?rows.length:'—','Tüm ürün kayıtları')+
         this._stat('Onay bekleyen',count('pending'),'İncelemedeki ürünler')+
         this._stat('Onaylanan',count('approved'),'Onaylı ürünler')+
