@@ -1,51 +1,43 @@
 // <pz-euro-rate>
-// Shared informational TCMB strip; inlined in Wix custom-element bundles.
-(function () {
-  'use strict';
-  if (customElements.get('pz-euro-rate')) return;
-  var cached = null, pending = null;
-  async function latest() {
-    if (cached && Date.now() - cached.checkedAt < 60000) return cached;
-    if (pending) return pending;
-    pending = (async function () {
-      var controller = new AbortController();
-      var timer = setTimeout(function () {controller.abort();}, 12000);
-      try {
-        var response = await fetch('https://www.parcazinciri.com/_functions/tcmbEuro', {credentials:'omit',signal:controller.signal});
-        if (!response.ok) throw new Error('unavailable');
-        var body = await response.json(), data = body.data;
-        if (!body.ok || !data || data.source !== 'TCMB' || data.type !== 'ForexSelling' ||
-            !Number.isSafeInteger(data.rateScaled) || data.rateScaled <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(data.date) ||
-            !Number.isFinite(Date.parse(data.date)) || Date.now()-Date.parse(data.date)>10*86400000 || Date.parse(data.date)>Date.now()+86400000) throw new Error('invalid');
-        cached = {rateScaled:data.rateScaled,date:data.date,checkedAt:Date.now()};
-        return cached;
-      } finally {clearTimeout(timer);pending=null;}
-    })();
-    return pending;
+// Shared TCMB EUR/USD ticker; site job and visible browsers refresh at each hour boundary.
+(function(){
+ 'use strict';
+ if(customElements.get('pz-euro-rate'))return;
+ var cached=null,pending=null;
+ function today(){return new Date(Date.now()+3*3600000).toISOString().slice(0,10);}
+ async function latest(){
+  var hour=Math.floor(Date.now()/3600000);
+  if(cached&&cached.hour===hour)return cached.data;
+  if(pending)return pending;
+  pending=(async()=>{var controller=new AbortController(),timer=setTimeout(()=>controller.abort(),15000);
+   try{var r=await fetch('https://www.parcazinciri.com/_functions/tcmbRates?hour='+hour,{credentials:'omit',cache:'no-store',signal:controller.signal});if(!r.ok)throw Error('unavailable');
+    var body=await r.json(),d=body.data;
+    if(!body.ok||d?.source!=='TCMB'||d.type!=='ForexSelling'||!/^\d{4}-\d{2}-\d{2}$/.test(d.date)||!Number.isFinite(Date.parse(d.checkedAt)))throw Error('invalid');
+    if(d.available&&d.date===today()&&(!Number.isSafeInteger(d.rates?.EUR)||d.rates.EUR<=0||!Number.isSafeInteger(d.rates?.USD)||d.rates.USD<=0))throw Error('invalid');
+    cached={hour:hour,data:d};return d;
+   }finally{clearTimeout(timer);pending=null;}
+  })();return pending;
+ }
+ class EuroRate extends HTMLElement{
+  constructor(){super();this.attachShadow({mode:'open'});}
+  connectedCallback(){
+   this.shadowRoot.innerHTML='<style>:host{display:block;flex:none;font-family:inherit;color:#38332e;background:#faf8f5;border-bottom:1px solid #e9e2d9}.bar{display:flex;align-items:center;min-height:32px;overflow:hidden;position:relative}.viewport{flex:1;min-width:0;overflow:hidden}.track{display:flex;width:max-content;animation:slide 44s linear infinite}.group{display:flex;flex:none}.piece{flex:none;white-space:nowrap;padding:6px 34px;font-size:13px;font-weight:500;font-variant-numeric:tabular-nums;line-height:20px;letter-spacing:.02em}.piece:before{content:"";display:inline-block;background:#ff6b00;width:5px;height:5px;border-radius:50%;margin-right:10px;vertical-align:middle}.bar:hover .track,.bar:focus-within .track,.paused .track{animation-play-state:paused}.toggle{flex:none;border:0;border-left:1px solid #e9e2d9;background:#faf8f5;color:#665b50;width:32px;align-self:stretch;cursor:pointer;font-size:13px}.toggle:focus-visible{outline:2px solid #ff6b00;outline-offset:-3px}.sr{position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden;white-space:nowrap}@keyframes slide{to{transform:translateX(-50%)}}@media(prefers-reduced-motion:reduce){.track{animation:none;width:auto}.group{display:block}.group+.group,.piece+.piece,.toggle{display:none}.piece{display:block;white-space:normal;font-size:12px;padding:6px 12px;text-align:center}}@media(max-width:600px){.piece{font-size:12px;padding:6px 24px}}</style><div class="bar"><span class="sr" role="status" aria-live="polite"></span><div class="viewport"><div class="track" aria-hidden="true"><div class="group"></div><div class="group"></div></div></div><button class="toggle" type="button" aria-label="Kayan yazıyı durdur">Ⅱ</button></div>';
+   this.setText('TCMB · Euro ve USD kurları yükleniyor…');
+   this.shadowRoot.querySelector('.toggle').onclick=()=>{var b=this.shadowRoot.querySelector('.bar'),paused=b.classList.toggle('paused'),button=this.shadowRoot.querySelector('.toggle');button.textContent=paused?'▶':'Ⅱ';button.setAttribute('aria-label',paused?'Kayan yazıyı başlat':'Kayan yazıyı durdur');};
+   this.refresh();this.schedule();this.onVisible=()=>{if(!document.hidden){this.refresh();this.schedule();}};document.addEventListener('visibilitychange',this.onVisible);
   }
-  class EuroRate extends HTMLElement {
-    constructor() {super();this.attachShadow({mode:'open'});}
-    connectedCallback() {
-      this.shadowRoot.innerHTML = '<style>:host{display:block;flex:none;font-family:inherit;color:#3c3935;background:#faf8f5;border-bottom:1px solid #e9e2d9}.bar{min-height:32px;padding:5px 24px;box-sizing:border-box;display:flex;align-items:center;justify-content:center;gap:8px 16px;flex-wrap:wrap;font-size:12px;line-height:1.5;letter-spacing:.01em}.label{display:inline-flex;align-items:center;gap:7px;font-weight:500}.dot{width:5px;height:5px;border-radius:50%;background:#ff6b00}strong{font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:#24211e}.meta{font-size:11px;color:#6b6259}a{color:inherit;text-decoration:none}a:hover{text-decoration:underline}a:focus-visible{outline:2px solid #ff6b00;outline-offset:3px}@media(max-width:600px){.bar{padding:6px 12px;gap:2px 10px}.meta{flex-basis:100%;text-align:center}}</style><div class="bar" role="status" aria-live="polite"><a class="label" href="https://www.tcmb.gov.tr/kurlar/today.xml" target="_blank" rel="noopener noreferrer" aria-label="TCMB Euro döviz satış kuru kaynağı"><span class="dot" aria-hidden="true"></span>TCMB EURO</a><strong>Kur yükleniyor…</strong><span class="meta">Döviz satış · Bilgilendirme amaçlı</span></div>';
-      this.refresh();
-      this.timer=setInterval(()=>{if(!document.hidden)this.refresh();},60000);
-      this.onVisible=()=>{if(!document.hidden)this.refresh();};
-      document.addEventListener('visibilitychange',this.onVisible);
-    }
-    disconnectedCallback(){clearInterval(this.timer);document.removeEventListener('visibilitychange',this.onVisible);}
-    async refresh(){
-      try {
-        var data=await latest();if(!this.isConnected)return;
-        this.shadowRoot.querySelector('strong').textContent='1 EUR = '+(data.rateScaled/10000).toLocaleString('tr-TR',{minimumFractionDigits:4,maximumFractionDigits:4})+' TL';
-        this.shadowRoot.querySelector('.meta').textContent='Döviz satış · Son yayımlanan: '+data.date.split('-').reverse().join('.')+' · Bilgilendirme amaçlı';
-      } catch (_) {
-        if(!this.isConnected)return;
-        this.shadowRoot.querySelector('strong').textContent='Kur şu an alınamıyor';
-        this.shadowRoot.querySelector('.meta').textContent='TCMB kaynağına erişmek için bağlantıyı kullanın · Bilgilendirme amaçlı';
-      }
-    }
+  disconnectedCallback(){clearTimeout(this.timer);clearTimeout(this.retry);document.removeEventListener('visibilitychange',this.onVisible);}
+  schedule(){clearTimeout(this.timer);this.timer=setTimeout(()=>{this.refresh();this.schedule();},3600000-Date.now()%3600000+100);}
+  setText(text){this.shadowRoot.querySelector('.sr').textContent=text;this.shadowRoot.querySelectorAll('.group').forEach(g=>{g.replaceChildren();for(var i=0;i<3;i++){var s=document.createElement('span');s.className='piece';s.textContent=text;g.appendChild(s);}});}
+  async refresh(){
+   try{var d=await latest();if(!this.isConnected)return;clearTimeout(this.retry);
+    if(d.available!==true||d.date!==today()){this.setText('TCMB · Bugünün Euro ve USD kurları henüz yayımlanmadı');return;}
+    this.setText('TCMB  Euro = '+(d.rates.EUR/10000).toFixed(2)+' TL   ·   USD = '+(d.rates.USD/10000).toFixed(2)+' TL');
+    this.shadowRoot.querySelector('.bar').title='TCMB döviz satış · '+d.date.split('-').reverse().join('.')+' · Bilgilendirme amaçlı · Son kontrol: '+new Date(d.checkedAt).toLocaleTimeString('tr-TR',{timeZone:'Europe/Istanbul',hour:'2-digit',minute:'2-digit'});
+   }catch(_){if(!this.isConnected)return;this.setText('TCMB · Euro ve USD kurları şu an alınamıyor');clearTimeout(this.retry);this.retry=setTimeout(()=>this.refresh(),60000);}
   }
-  customElements.define('pz-euro-rate',EuroRate);
+ }
+ customElements.define('pz-euro-rate',EuroRate);
 })();
 
 // </pz-euro-rate>
