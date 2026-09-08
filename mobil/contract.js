@@ -74,11 +74,11 @@ export function validateProduct(input, media = [], {allowZeroStock=false} = {}) 
   out.productCodeUnknown = input.productCodeUnknown === true;
   const code = str("productCode", !out.productCodeUnknown, 80);
   if (out.productCodeUnknown && code)
-    fail("productCode", "Diğer seçiliyken ürün kodu girilemez.");
+    fail("productCode", "Diğer seçiliyken parça kodu girilemez.");
   if (/^(diğer|diger)$/i.test(code))
     fail("productCode", "Kodunuz yoksa Diğer kutusunu kullanın.");
   if (/[<>]|https?:\/\/|@/i.test(code))
-    fail("productCode", "Ürün / stok kodunu kontrol edin.");
+    fail("productCode", "Parça kodunu kontrol edin.");
   // No fallback to a supplier SKU, serial number, title or generated identifier.
   if (input.listingType === "part") {
     str("partName");
