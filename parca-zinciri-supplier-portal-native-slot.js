@@ -877,7 +877,18 @@ a{color:inherit;text-decoration:none}
 .product-page h3{margin:28px 0 16px;padding-top:20px;border-top:1px solid var(--line)}
 .product-page .check{display:flex;align-items:center;gap:8px;margin:12px 0;width:auto;height:auto;min-height:32px;font-size:14px}
 .product-page .check input{flex:none;width:18px;height:18px;accent-color:var(--accent)}
-.product-page [data-action="reload-product-catalog"]{margin-bottom:16px}
+.product-page fieldset{border:0;padding:0;margin:0;min-width:0}
+.photo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin:16px 0}
+.photo-card{position:relative;border:1px dashed var(--line);border-radius:10px;padding:10px;min-width:0;background:var(--panel)}
+.photo-pick{position:relative;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:8px;min-height:150px;cursor:pointer;text-align:center}
+.photo-pick input{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer}
+.photo-pick:focus-within{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+.photo-pick img{width:100%;height:120px;object-fit:contain;border-radius:6px}
+.photo-card.has-photo{border-style:solid;border-color:var(--accent)}
+.photo-card [data-photo-status]{display:block;margin:8px 0;font-size:13px;overflow-wrap:anywhere}
+.photo-card progress,[data-upload-progress] progress{width:100%;accent-color:var(--accent)}
+[data-upload-progress]{margin:20px 0;padding:16px;border:1px solid var(--line);border-radius:10px}
+@media(max-width:640px){.photo-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.photo-pick{min-height:120px}.photo-pick img{height:100px}}
 @media(max-width:640px){.product-page{padding:16px}.product-page .panel-h{align-items:flex-start;gap:12px;flex-wrap:wrap}}
 .overview-actions{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin:18px 0}
 .btn.overview-add{min-height:54px;min-width:232px;padding:0 26px;font-size:16px;gap:10px}
@@ -2219,7 +2230,13 @@ table.data tr.clickable{cursor:pointer}
         this._loadWebProductCatalog();
         return;
       }
-      if (action === "reload-product-catalog") { this._loadWebProductCatalog(); return; }
+      if (action === "remove-product-photo") {
+        if(this._webSaving)return;
+        const card=t.closest('[data-photo-slot]');
+        card.querySelector('input').value='';
+        this._updateProductPhoto(card.querySelector('input'));
+        return;
+      }
       if (action === "leave-product-add") {
         this._setRoute(this._webProductReturnRoute || "inventory");
         return;
@@ -2367,7 +2384,11 @@ table.data tr.clickable{cursor:pointer}
     _onChange(e) {
       var el = e.target;
       if (!el) return;
-      if (el.form?.id === "pz-web-product-form") { this._syncWebProductFields(el.form, el.name); return; }
+      if (el.form?.id === "pz-web-product-form") {
+        if(el.matches('[data-photo-input]'))this._updateProductPhoto(el);
+        else this._syncWebProductFields(el.form, el.name);
+        return;
+      }
       if (el.hasAttribute("data-filter")) {
         var key = el.getAttribute("data-filter");
         this._state.filters[key] = el.type === "checkbox" ? el.checked : el.value;
@@ -3898,16 +3919,15 @@ table.data tr.clickable{cursor:pointer}
     _renderLiveInventory() {
       var q=(this._state.invSearch||'').toLocaleLowerCase('tr');
       var rows=(this._liveInventory||[]).filter(function(p){return [p.title,p.productCode,p.oem].join(' ').toLocaleLowerCase('tr').indexOf(q)!==-1;});
-      var identity=this._liveInventoryIdentity||{};
       var status={draft:'Taslak',pending:'Onay bekliyor',approved:'Onaylandı',rejected:'Reddedildi',archived:'Arşivlendi'};
       var content=rows.map(function(p){
         var media=(p.media||[]).map(function(m){
           if(!/^https:\/\/(static\.wixstatic\.com|video\.wixstatic\.com|[a-z0-9.-]+\.wixmp\.com)\//i.test(m.url||''))return '';
           return m.mime.indexOf('video/')===0?'<video controls preload="metadata" style="max-width:260px" src="'+esc(m.url)+'"></video>':'<img alt="'+esc(p.title)+'" style="width:120px;height:100px;object-fit:contain;background:white" src="'+esc(m.url)+'">';
         }).join('');
-        return '<article class="panel" data-live-listing="'+esc(p.listingKey)+'"><h3>'+esc(p.title)+'</h3><div>'+media+'</div><p>Parça kodu: '+esc(p.productCodeUnknown?'Belirtilmemiş · Diğer':p.productCode)+' · '+esc(p.stockQuantity)+' adet · '+esc(money(p.priceEur,'EUR'))+'</p><p>'+esc(status[p.status]||p.status)+'</p><details><summary>Kayıt bilgileri</summary><p>Satıcı no: '+esc(p.sellerNumber)+'</p><p>Kayıt no: '+esc(p.listingKey)+'</p><p>Kullanıcı no: '+esc(p.ownerMemberId)+'</p></details></article>';
+        return '<article class="panel" data-live-listing="'+esc(p.listingKey)+'"><h3>'+esc(p.title)+'</h3><div>'+media+'</div><p>'+esc(p.listingType==='machine'?(p.machineSerialNumber?'Seri no: '+p.machineSerialNumber+' · ':''):(p.productCodeUnknown?'Parça no belirtilmedi · ':'Parça kodu: '+(p.productCode||'Belirtilmedi')+' · '))+esc(p.stockQuantity)+' adet · '+esc(money(p.priceEur,'EUR'))+'</p><p>'+esc(status[p.status]||p.status)+'</p><details><summary>Kayıt bilgileri</summary><p>Satıcı no: '+esc(p.sellerNumber)+'</p><p>Kayıt no: '+esc(p.listingKey)+'</p><p>Kullanıcı no: '+esc(p.ownerMemberId)+'</p></details></article>';
       }).join('');
-      return '<div class="eyebrow">Stok ve Katalog</div><p>Mobil uygulama ve bu panel aynı tedarikçi kayıtlarını kullanır.</p><p style="overflow-wrap:anywhere">'+esc(identity.companyName||'')+' · '+esc(identity.sellerNumber||'')+'</p><div class="toolbar"><button type="button" class="btn primary sm" data-action="add-inventory">Yeni Parça Ekle</button><button class="btn sm" data-action="reload-live-inventory">Yenile</button><input aria-label="Stok arama" placeholder="Stokta ara" data-inv-search value="'+esc(this._state.invSearch||'')+'"></div>'+(this._inventoryLoading?'<p>Ürünler yükleniyor…</p>':this._inventoryError?'<p role="alert">'+esc(this._inventoryError)+'</p>':content||'<p>Henüz ürün bulunmuyor.</p>');
+      return '<div class="eyebrow">Stok ve Katalog</div><p>Eklediğiniz ürünleri ve onay durumlarını buradan takip edebilirsiniz.</p><div class="toolbar"><button type="button" class="btn primary sm" data-action="add-inventory">Yeni Parça Ekle</button><button class="btn sm" data-action="reload-live-inventory">Yenile</button><input aria-label="Stok arama" placeholder="Stokta ara" data-inv-search value="'+esc(this._state.invSearch||'')+'"></div>'+(this._inventoryLoading?'<p>Ürünler yükleniyor…</p>':this._inventoryError?'<p role="alert">'+esc(this._inventoryError)+'</p>':content||'<p>Henüz ürün bulunmuyor.</p>');
     }
 
     _renderLegacyInventory() {
@@ -4646,16 +4666,52 @@ table.data tr.clickable{cursor:pointer}
 
     _webCall(operation, data) {return this._pricedQuoteApi('supplierWebCall',{operation:operation,data:data||{}});}
 
-    async _uploadWebFile(file, operation, type) {
+    _updateProductPhoto(input) {
+      const card=input.closest('[data-photo-slot]'),status=card.querySelector('[data-photo-status]'),img=card.querySelector('img');
+      let file=input.files[0];
+      if(file && (!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>10*1024*1024)) {
+        input.value='';file=null;status.textContent='JPG, PNG veya WebP seçin; en fazla 10 MB.';
+      } else status.textContent=file?'Seçildi — gönderilmeye hazır':'Henüz fotoğraf seçilmedi';
+      card._photoFile=file;
+      card.classList.toggle('has-photo',!!file);
+      img.hidden=true;img.removeAttribute('src');
+      card.querySelector('[data-photo-caption]').textContent=file?'Fotoğrafı değiştir':'Fotoğraf '+(Number(card.dataset.photoSlot)+1)+' ekle';
+      card.querySelector('[data-action="remove-product-photo"]').hidden=!file;
+      card.querySelector('progress').hidden=true;
+      if(file) {
+        const reader=new FileReader();
+        reader.onload=()=>{if(card._photoFile===file && card.isConnected){img.src=reader.result;img.hidden=false;}};
+        reader.onerror=()=>{if(card._photoFile===file)status.textContent='Önizleme açılamadı. Başka fotoğraf seçin.';};
+        reader.readAsDataURL(file);
+      }
+    }
+
+    async _uploadWebFile(file, operation, type, onProgress) {
       const scope=this._inventoryScope;
       const started=await this._webCall(operation,{name:file.name,mime:file.type,size:file.size,type:type});
       if(scope!==this._inventoryScope)throw Error("Oturum değişti. Yeniden giriş yapın.");
       const url=new URL(started.uploadUrl);
       if(url.protocol!=='https:'||!/(^|\.)(wix\.com|wixapis\.com|wixmp\.com)$/.test(url.hostname))throw Error('Yükleme adresi doğrulanamadı.');
       url.searchParams.set('filename',started.fileName);
-      const response=await fetch(url.toString(),{method:'PUT',headers:{'Content-Type':file.type},body:file,credentials:'omit'});
-      if(!response.ok)throw Error('Dosya yüklenemedi. Tekrar deneyin.');
-      const result=await response.json(),fileId=result.file?.id||result.file?._id;
+      let result;
+      if(onProgress) {
+        result=await new Promise((resolve,reject)=>{
+          const xhr=new XMLHttpRequest();
+          xhr.upload.onprogress=e=>{if(e.lengthComputable)onProgress(Math.min(100,Math.floor(e.loaded/e.total*100)));};
+          xhr.open('PUT',url.toString());xhr.responseType='json';xhr.timeout=120000;
+          xhr.setRequestHeader('Content-Type',file.type);
+          xhr.onload=()=>{if(xhr.status>=200&&xhr.status<300){onProgress(100);resolve(xhr.response);}else reject(Error('Dosya yüklenemedi. Tekrar deneyin.'));};
+          xhr.onerror=()=>reject(Error('Fotoğraf yüklenemedi. Bağlantınızı kontrol edip tekrar deneyin.'));
+          xhr.ontimeout=()=>reject(Error('Fotoğraf yükleme süresi doldu. Tekrar deneyin.'));
+          xhr.onabort=()=>reject(Error('Fotoğraf yüklemesi durduruldu.'));
+          xhr.send(file);
+        });
+      } else {
+        const response=await fetch(url.toString(),{method:'PUT',headers:{'Content-Type':file.type},body:file,credentials:'omit'});
+        if(!response.ok)throw Error('Dosya yüklenemedi. Tekrar deneyin.');
+        result=await response.json();
+      }
+      const fileId=result?.file?.id||result?.file?._id;
       if(!fileId)throw Error('Dosya kimliği alınamadı.');
       return {ticketId:started.ticketId,fileId:fileId};
     }
@@ -4674,7 +4730,7 @@ table.data tr.clickable{cursor:pointer}
         this._syncWebProductFields(form, 'machineType');
         status.textContent = '';
       } catch (e) {
-        if (scope === this._inventoryScope && form.isConnected) status.textContent = 'Makine kataloğu yüklenemedi. Kataloğu yeniden yükleyin.';
+        if (scope === this._inventoryScope && form.isConnected) status.textContent = 'Makine listesi alınamadı. Bağlantınızı kontrol edip ilan türünü tekrar seçin.';
       }
     }
 
@@ -4708,56 +4764,79 @@ table.data tr.clickable{cursor:pointer}
       if (fields.productCodeUnknown.checked) fields.productCode.value = '';
       const noun = {part:'Parça',equipment:'Ekipman',machine:'Makine'}[kind];
       this._root.querySelector('#web-product-title').textContent = 'Yeni '+noun+' Ekle';
-      form.querySelector('label[for="web-images"]').textContent = noun+' fotoğrafları (1–6 adet)';
+      form.querySelector('[data-photo-heading]').textContent = noun+' fotoğrafları';
       form.querySelector('[type="submit"]').textContent = {part:'Parçayı',equipment:'Ekipmanı',machine:'Makineyi'}[kind]+' kaydet ve onaya gönder';
+      if(changed==='listingType' && isMachine && !catalog)this._loadWebProductCatalog();
     }
 
     _renderWebProductPage() {
       const input=(name,label,type='text',extra='')=>'<div class="field"><label for="web-'+name+'">'+label+'</label><input id="web-'+name+'" name="'+name+'" type="'+type+'" '+extra+' required></div>';
       const select=(name,label,values,extra='')=>'<div class="field"><label for="web-'+name+'">'+label+'</label><select id="web-'+name+'" name="'+name+'" '+extra+' required>'+values.map(v=>'<option value="'+esc(v[0])+'">'+esc(v[1])+'</option>').join('')+'</select></div>';
-      return '<section class="panel product-page" aria-labelledby="web-product-title"><div class="panel-h"><h2 id="web-product-title" class="h2" tabindex="-1" data-autofocus>Yeni Parça Ekle</h2><button type="button" class="btn" data-action="leave-product-add">← Geri dön</button></div><form id="pz-web-product-form">'+
+      return '<section class="panel product-page" aria-labelledby="web-product-title"><div class="panel-h"><h2 id="web-product-title" class="h2" tabindex="-1" data-autofocus>Yeni Parça Ekle</h2><button type="button" class="btn" data-action="leave-product-add">← Geri dön</button></div><form id="pz-web-product-form"><fieldset data-product-fields>'+
         '<h3>Ürün bilgileri</h3>'+select('listingType','İlan türü',[['part','Parça'],['equipment','Ekipman'],['machine','Makine']])+
         '<div class="grid-2" data-product-kind="part">'+input('partName','Parça adı','text','maxlength="200"')+
         select('partOriginType','Parça türü',[['original','Orijinal'],['aftermarket','Yan sanayi'],['domestic','Yerli']])+
         select('partCondition','Parça durumu',[['new_boxed','Yeni, kutulu'],['new_unboxed','Yeni, kutusuz'],['used_good','Çıkma, iyi durumda'],['repaired_working_good','Revizyonlu, çalışır durumda']])+'</div>'+
         '<div class="grid-2" data-product-kind="equipment" hidden>'+select('equipmentType','Ekipman türü',[['engine','Motor'],['transmission','Şanzıman'],['front_differential','Ön diferansiyel'],['rear_differential','Arka diferansiyel'],['operator_cabin','Operatör kabini'],['chassis','Şase'],['hydraulic_cylinder','Hidrolik silindir']],'disabled')+
         select('equipmentCondition','Ekipman durumu',[['new_original','Sıfır, orijinal'],['original_reconditioned','Orijinal, revizyonlu']],'disabled')+'<div class="field"><label for="web-equipmentWorkDescription">Revizyonda yapılan işlemler</label><textarea id="web-equipmentWorkDescription" name="equipmentWorkDescription" maxlength="2000" disabled></textarea></div></div>'+
-        '<div data-product-kind="machine" hidden><h3>Makine bilgileri</h3><p role="status" data-catalog-status>Makine kataloğu yükleniyor…</p><button type="button" class="btn sm" data-action="reload-product-catalog">Kataloğu yeniden yükle</button><div class="grid-2">'+
+        '<div data-product-kind="machine" hidden><h3>Makine bilgileri</h3><p role="status" data-catalog-status>Makine kataloğu yükleniyor…</p><div class="grid-2">'+
         select('machineType','Makine türü',[['','Seçiniz'],['excavator','Ekskavatör'],['wheel_loader','Loader / Lastikli Yükleyici'],['telehandler','Telehandler / Teleskopik Yükleyici'],['forklift','Forklift'],['backhoe_loader','Beko Loder / Kazıcı Yükleyici'],['road_roller','Yol Silindiri'],['heavy_offroad_truck','Ağır Yük Off-Road / Kaya Kamyonu']],'disabled')+
         select('machineBrandId','Makine markası',[['','Önce makine türünü seçin']],'disabled')+select('machineModelId','Makine modeli',[['','Önce marka seçin']],'disabled')+
         '<div class="field" hidden><label for="web-manualBrandName">Diğer marka adı</label><input id="web-manualBrandName" name="manualBrandName" maxlength="120" disabled></div><div class="field" hidden><label for="web-manualModelName">Diğer model adı</label><input id="web-manualModelName" name="manualModelName" maxlength="120" disabled></div>'+input('machineSerialNumber','Makine seri numarası','text','maxlength="80" disabled')+
-        input('modelYear','Model yılı','number','min="1900" max="'+new Date().getFullYear()+'" disabled')+'<div class="field"><label for="web-machineModificationSummary">Yapılan işlemler / değişiklik özeti</label><textarea id="web-machineModificationSummary" name="machineModificationSummary" required maxlength="2000" disabled></textarea></div></div></div>'+
+        input('modelYear','Model yılı','number','min="1900" max="'+new Date().getFullYear()+'" disabled')+'<div class="field"><label for="web-machineModificationSummary">Makinede yapılan işlemleri yazınız</label><textarea id="web-machineModificationSummary" name="machineModificationSummary" required maxlength="2000" disabled></textarea></div></div></div>'+
         '<div data-product-kind="part equipment">'+input('productCode','Parça kodu','text','maxlength="80"')+'<label class="check"><input name="productCodeUnknown" type="checkbox">Parça no elimde yok</label></div>'+
         '<h3>Stok ve fiyat</h3><div class="grid-2">'+input('stockQuantity','Stok adedi','number','min="1" step="1"')+input('priceEur','Birim fiyat (Euro / EUR)','number','min="0.01" step="0.01"')+'</div>'+
         '<div class="field"><label for="web-description">Açıklama (isteğe bağlı)</label><textarea id="web-description" name="description" maxlength="4000"></textarea></div>'+
-        '<h3>Fotoğraflar</h3><div class="field"><label for="web-images">Parça fotoğrafları (1–6 adet)</label><input id="web-images" name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple required></div><p class="muted">Fiyatlar yalnız Euro olarak kaydedilir. İlanınız kayıttan sonra Parça Zinciri onayına gönderilir.</p><p role="status" data-web-status></p><button class="btn primary" type="submit">Parçayı kaydet ve onaya gönder</button></form></section>';
+        '<h3 data-photo-heading>Parça fotoğrafları</h3><p class="muted">1–6 fotoğraf ekleyin. JPG, PNG veya WebP; her fotoğraf en fazla 10 MB.</p><div class="photo-grid">'+Array.from({length:6},(_,i)=>'<div class="photo-card" data-photo-slot="'+i+'"><label class="photo-pick"><img alt="Fotoğraf '+(i+1)+' önizlemesi" hidden><span data-photo-caption>Fotoğraf '+(i+1)+' ekle</span><input data-photo-input type="file" accept="image/jpeg,image/png,image/webp" aria-label="Fotoğraf '+(i+1)+'"></label><span data-photo-status>Henüz fotoğraf seçilmedi</span><progress max="100" value="0" aria-label="Fotoğraf '+(i+1)+' yükleme" hidden></progress><button type="button" class="btn sm" data-action="remove-product-photo" hidden>Kaldır</button></div>').join('')+'</div><p class="muted">Fiyatlar yalnız Euro olarak kaydedilir. İlanınız kayıttan sonra Parça Zinciri onayına gönderilir.</p></fieldset><div data-upload-progress hidden><span data-upload-label>Fotoğraflar yükleniyor: %0</span><progress max="100" value="0" aria-label="Toplam fotoğraf yükleme"></progress></div><p role="status" data-web-status></p><button class="btn primary" type="submit">Parçayı kaydet ve onaya gönder</button></form></section>';
     }
 
     async _saveWebProduct(form) {
       if(this._webSaving)return;
-      const values={...Object.fromEntries(new FormData(form)),productCodeUnknown:form.elements.listingType.value === 'machine' || form.elements.productCodeUnknown.checked}, files=Array.from(form.images.files);
+      const values={...Object.fromEntries(new FormData(form)),productCodeUnknown:form.elements.listingType.value === 'machine' || form.elements.productCodeUnknown.checked}, cards=Array.from(form.querySelectorAll('[data-photo-slot]')).filter(c=>c._photoFile), files=cards.map(c=>c._photoFile);
       const status=form.querySelector('[data-web-status]'),button=form.querySelector('[type="submit"]');
       if(files.length<1||files.length>6||files.some(f=>!['image/jpeg','image/png','image/webp'].includes(f.type)||f.size>10*1024*1024)){status.textContent='1–6 JPG, PNG veya WebP fotoğraf seçin; her biri en fazla 10 MB.';return;}
       if(values.listingType === 'machine' && (!this._webMachineCatalog || !values.machineBrandId || !values.machineModelId)){status.textContent='Makine kataloğunu yükleyip marka ve model seçin.';return;}
-      this._webSaving=true;button.disabled=true;
+      this._webSaving=true;button.disabled=true;form.querySelector('[data-product-fields]').disabled=true;
+      const progress=form.querySelector('[data-upload-progress]'),totalBytes=files.reduce((n,f)=>n+f.size,0);
+      const loaded=files.map(()=>0);
+      progress.hidden=false;progress.scrollIntoView({block:'nearest',behavior:'smooth'});
+      const updateProgress=(i,percent)=>{
+        loaded[i]=files[i].size*percent/100;
+        const total=totalBytes?Math.floor(loaded.reduce((a,b)=>a+b,0)/totalBytes*100):0;
+        progress.querySelector('progress').value=total;
+        progress.querySelector('[data-upload-label]').textContent='Fotoğraflar yükleniyor: %'+total;
+        cards[i].querySelector('progress').hidden=false;cards[i].querySelector('progress').value=percent;
+        cards[i].querySelector('[data-photo-status]').textContent='Yükleniyor: %'+percent;
+      };
+      let activeCard;
       const scope=this._inventoryScope;
       try {
         const refs=[];
         for(let i=0;i<files.length;i++){
           if(scope!==this._inventoryScope)throw Error("Oturum değişti.");
-          status.textContent='Fotoğraf yükleniyor: '+(i+1)+' / '+files.length;
-          const ref=files[i]._pzUpload||await this._uploadWebFile(files[i],'uploadStart');files[i]._pzUpload=ref;
-          await this._webCall('uploadConfirm',ref);refs.push(ref.ticketId);
+          activeCard=cards[i];updateProgress(i,0);
+          status.textContent='Fotoğraf '+(i+1)+' / '+files.length+' yükleniyor…';
+          const ref=files[i]._pzUpload||await this._uploadWebFile(files[i],'uploadStart',undefined,p=>updateProgress(i,p));files[i]._pzUpload=ref;
+          updateProgress(i,100);activeCard.querySelector('[data-photo-status]').textContent='Yükleme tamamlandı — doğrulanıyor';
+          try{await this._webCall('uploadConfirm',ref);}catch(e){delete files[i]._pzUpload;throw e;}
+          refs.push(ref.ticketId);activeCard.querySelector('[data-photo-status]').textContent='✓ Yüklendi';activeCard=null;
         }
         if(scope!==this._inventoryScope)throw Error('Oturum değişti. Yeniden giriş yapın.');
+        progress.querySelector('[data-upload-label]').textContent='Fotoğraflar yüklendi: %100';
         status.textContent='İlan sunucuya kaydediliyor…';
         this._webProductKey=this._webProductKey||crypto.randomUUID();
         const result=await this._webCall('create',{...values,currency:'EUR',priceEur:values.priceEur,stockQuantity:Number(values.stockQuantity),mediaIds:refs,idempotencyKey:this._webProductKey});
         if(!result?.listingKey||!['pending','approved'].includes(result.status))throw Error('İlan kaydı doğrulanamadı.');
         if(scope!==this._inventoryScope)return;
         this._webProductKey=null;this._state.modal=null;this._state.route="inventory";this._render();await this._loadLiveInventory();this._toast('İlan kaydedildi','Parça Zinciri onayına gönderildi.');
-      }catch(e){status.textContent=e.message||'Kayıt tamamlanamadı. Tekrar deneyin.';}
-      finally{this._webSaving=false;button.disabled=false;}
+      }catch(e){
+        status.textContent=e.message||'Kayıt tamamlanamadı. Tekrar deneyin.';
+        if(activeCard){
+          activeCard.querySelector('[data-photo-status]').textContent='Yüklenemedi — tekrar deneyin';
+          progress.querySelector('[data-upload-label]').textContent='Fotoğraf yüklemesi durdu: %'+progress.querySelector('progress').value;
+        }
+      }
+      finally{this._webSaving=false;button.disabled=false;form.querySelector('[data-product-fields]').disabled=false;}
     }
 
     _selectDocument(id) {
