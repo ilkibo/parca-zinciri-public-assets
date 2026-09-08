@@ -3535,17 +3535,16 @@ table.data tr.clickable{cursor:pointer}
       var count=function(status){return ready?rows.filter(function(p){return p.status===status;}).length:'—';};
       var status=this._inventoryError?'<p role="alert">'+esc(this._inventoryError)+'</p>':
         !ready?'<p role="status">Ürün özeti sunucudan yükleniyor…</p>':
-        rows.length?'<p>Bu özet, hesabınıza ait sunucu kayıtlarından hesaplanır.</p>':'<p>Henüz ürün kaydınız yok.</p>';
-      return '<div class="eyebrow">Operasyon özeti</div><h2 class="h2" style="margin-top:8px">'+esc(greeting())+'</h2>'+
-        '<p>'+esc(this._liveCompanyName())+'</p>'+status+
+        rows.length?'<p>Parçalarınızı ekleyin, stok bilgilerinizi kolayca yönetin.</p>':'<p>Henüz ürün kaydınız yok.</p>';
+      return '<div class="eyebrow">Tedarikçi paneliniz</div><h2 class="h2" style="margin-top:8px">Parça Zinciri’ne hoş geldiniz</h2>'+status+
         '<div class="overview-actions"><button type="button" class="btn primary overview-add" data-action="add-inventory"><span aria-hidden="true">＋</span>Yeni Parça Ekle</button>'+
         '<button class="btn sm" data-action="reload-live-inventory"'+(this._inventoryLoading?' disabled':'')+'>Özeti yenile</button></div>'+
         '<div class="stats">'+this._stat('Toplam ürün',ready?rows.length:'—','Tüm ürün kayıtları')+
         this._stat('Onay bekleyen',count('pending'),'İncelemedeki ürünler')+
         this._stat('Onaylanan',count('approved'),'Onaylı ürünler')+
         this._stat('Reddedilen',count('rejected'),'Düzenleme gereken ürünler')+'</div>'+
-        '<section class="panel"><div class="panel-h"><h3>Talep, teklif ve sipariş özeti</h3></div>'+
-        '<p>Bu bölümün canlı veri bağlantısı henüz tamamlanmadı. Talep, teklif, satış veya aktivite sayısı gösterilmiyor.</p></section>'+
+        '<section class="panel"><div class="panel-h"><h3>Birlikte büyüyelim</h3></div>'+
+        '<p>Yeni parçalarınızı ekleyin, ürün bilgilerinizi güncel tutun. İşinizi kolaylaştırmak için buradayız.</p></section>'+
         '<section class="panel"><div class="panel-h"><h3>Hızlı erişim</h3></div><div class="quick">'+
         '<button class="btn" data-action="nav" data-route="inventory">Stok ve Katalog</button>'+
         '<button class="btn" data-action="nav" data-route="notifications">Bildirimler</button></div></section>';
@@ -4717,7 +4716,7 @@ table.data tr.clickable{cursor:pointer}
       return '<section class="panel product-page" aria-labelledby="web-product-title"><div class="panel-h"><h2 id="web-product-title" class="h2" tabindex="-1" data-autofocus>Yeni Parça Ekle</h2><button type="button" class="btn" data-action="leave-product-add">← Geri dön</button></div><form id="pz-web-product-form">'+
         '<h3>Ürün bilgileri</h3>'+select('listingType','İlan türü',[['part','Parça'],['equipment','Ekipman'],['machine','Makine']])+
         '<div class="grid-2" data-product-kind="part">'+input('partName','Parça adı','text','maxlength="200"')+
-        select('partOriginType','Parça türü',[['original','Orijinal'],['aftermarket','Yan sanayi']])+
+        select('partOriginType','Parça türü',[['original','Orijinal'],['aftermarket','Yan sanayi'],['domestic','Yerli']])+
         select('partCondition','Parça durumu',[['new_boxed','Yeni, kutulu'],['new_unboxed','Yeni, kutusuz'],['used_good','Çıkma, iyi durumda'],['repaired_working_good','Revizyonlu, çalışır durumda']])+'</div>'+
         '<div class="grid-2" data-product-kind="equipment" hidden>'+select('equipmentType','Ekipman türü',[['engine','Motor'],['transmission','Şanzıman'],['front_differential','Ön diferansiyel'],['rear_differential','Arka diferansiyel'],['operator_cabin','Operatör kabini'],['chassis','Şase'],['hydraulic_cylinder','Hidrolik silindir']],'disabled')+
         select('equipmentCondition','Ekipman durumu',[['new_original','Sıfır, orijinal'],['original_reconditioned','Orijinal, revizyonlu']],'disabled')+'<div class="field"><label for="web-equipmentWorkDescription">Revizyonda yapılan işlemler</label><textarea id="web-equipmentWorkDescription" name="equipmentWorkDescription" maxlength="2000" disabled></textarea></div></div>'+

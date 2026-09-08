@@ -82,7 +82,7 @@ export function validateProduct(input, media = [], {allowZeroStock=false} = {}) 
   // No fallback to a supplier SKU, serial number, title or generated identifier.
   if (input.listingType === "part") {
     str("partName");
-    choice("partOriginType", ["original", "aftermarket"]);
+    choice("partOriginType", ["original", "aftermarket", "domestic"]);
     choice("partCondition", Object.keys(conditions));
     out.oemUnknown = input.oemUnknown === true;
     const oem = str("oem", !out.oemUnknown, 80);

@@ -1,4 +1,4 @@
-const CACHE = "pz-mobile-shell-v14-complete";
+const CACHE = "pz-mobile-shell-v15-domestic";
 const SHELL = [
   "/recorder.js",
   "/notifications.js",

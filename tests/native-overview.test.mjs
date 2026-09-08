@@ -58,7 +58,7 @@ test('native overview uses server inventory and rejects legacy/stale data', {tim
       await refresh('rows');
       await page.waitForFunction(()=>document.querySelector('parca-zinciri-supplier-portal').shadowRoot.querySelector('.stat .val')?.textContent==='4');
       assert.deepEqual(await host.locator('.stat .val').allTextContents(),['4','2','1','1']);
-      assert.equal(await host.getByText('Bu bölümün canlı veri bağlantısı henüz tamamlanmadı. Talep, teklif, satış veya aktivite sayısı gösterilmiyor.',{exact:true}).count(),1);
+      assert.equal(await host.getByText('Yeni parçalarınızı ekleyin, ürün bilgilerinizi güncel tutun. İşinizi kolaylaştırmak için buradayız.',{exact:true}).count(),1);
     });
     await t.test('server identity is escaped rather than interpreted as markup',async()=>{
       await page.evaluate(()=>{mode='defer';host._loadLiveInventory();});
