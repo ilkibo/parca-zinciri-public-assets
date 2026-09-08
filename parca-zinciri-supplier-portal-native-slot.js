@@ -364,7 +364,7 @@
         qty: 4,
         stockQty: 14,
         unitPrice: 2450,
-        currency: "TRY",
+        currency: "EUR",
         shipping: 180,
         condition: "Yeni",
         brand: "FleetSeal",
@@ -384,7 +384,7 @@
         qty: 1,
         stockQty: 2,
         unitPrice: 18500,
-        currency: "TRY",
+        currency: "EUR",
         shipping: 450,
         condition: "Revizyonlu",
         brand: "Aftermarket Premium",
@@ -404,7 +404,7 @@
         qty: 2,
         stockQty: 6,
         unitPrice: 3200,
-        currency: "TRY",
+        currency: "EUR",
         shipping: 280,
         condition: "Yeni",
         brand: "OEM Eşdeğer",
@@ -424,7 +424,7 @@
         qty: 1,
         stockQty: 1,
         unitPrice: 9800,
-        currency: "TRY",
+        currency: "EUR",
         shipping: 350,
         condition: "Çıkma",
         brand: "Çıkma Stok",
@@ -444,7 +444,7 @@
         qty: 4,
         stockQty: 8,
         unitPrice: 1650,
-        currency: "TRY",
+        currency: "EUR",
         shipping: 220,
         condition: "Yeni",
         brand: "AirPath",
@@ -472,7 +472,7 @@
         quantity: 14,
         condition: "Yeni",
         unitPrice: 2450,
-        currency: "TRY",
+        currency: "EUR",
         city: "İstanbul",
         leadTime: "1-2 gün",
         active: true,
@@ -489,7 +489,7 @@
         quantity: 8,
         condition: "Yeni",
         unitPrice: 1650,
-        currency: "TRY",
+        currency: "EUR",
         city: "İstanbul",
         leadTime: "2 gün",
         active: true,
@@ -506,7 +506,7 @@
         quantity: 3,
         condition: "Çıkma",
         unitPrice: 9200,
-        currency: "TRY",
+        currency: "EUR",
         city: "Bursa",
         leadTime: "1 gün",
         active: true,
@@ -523,7 +523,7 @@
         quantity: 2,
         condition: "Yeni",
         unitPrice: 14200,
-        currency: "TRY",
+        currency: "EUR",
         city: "İstanbul",
         leadTime: "3 gün",
         active: true,
@@ -540,7 +540,7 @@
         quantity: 11,
         condition: "Yeni",
         unitPrice: 3100,
-        currency: "TRY",
+        currency: "EUR",
         city: "Ankara",
         leadTime: "2 gün",
         active: true,
@@ -557,7 +557,7 @@
         quantity: 1,
         condition: "Revizyonlu",
         unitPrice: 17800,
-        currency: "TRY",
+        currency: "EUR",
         city: "İzmir",
         leadTime: "4 gün",
         active: false,
@@ -574,7 +574,7 @@
         partName: "Turbo hortumu",
         qty: 4,
         total: 7200,
-        currency: "TRY",
+        currency: "EUR",
         city: "İstanbul",
         status: "Hazırlanıyor",
         cargo: ""
@@ -585,7 +585,7 @@
         partName: "Yağ filtresi gövdesi",
         qty: 6,
         total: 15600,
-        currency: "TRY",
+        currency: "EUR",
         city: "Ankara",
         status: "Kargoya Verildi",
         cargo: "YK 7845123690"
@@ -596,7 +596,7 @@
         partName: "Motor kulağı",
         qty: 2,
         total: 6680,
-        currency: "TRY",
+        currency: "EUR",
         city: "Bursa",
         status: "Teslim Edildi",
         cargo: "AR 991200334"
@@ -607,7 +607,7 @@
         partName: "Fren kaliperi",
         qty: 1,
         total: 10150,
-        currency: "TRY",
+        currency: "EUR",
         city: "İzmir",
         status: "Sipariş Alındı",
         cargo: ""
@@ -708,7 +708,7 @@
 
   function seedSettings() {
     return {
-      currency: "TRY",
+      currency: "EUR",
       leadDefault: "2-4 gün",
       validityDefault: "7 gün",
       emailNotif: true,
@@ -1424,7 +1424,7 @@ table.data tr.clickable{cursor:pointer}
       }
       var inventoryScope=authUi==='active_supplier'&&ctx&&ctx.companyId?String(ctx.companyId)+':'+String(ctx.role||''):'';
       var inventoryChanged=inventoryScope!==this._inventoryScope;
-      if(inventoryChanged){this._resetLiveInventory();this._inventoryScope=inventoryScope;}
+      if(inventoryChanged){this._state.documents=seedDocuments().filter(d=>d.type!=="quality_certs").map(d=>({...d,status:"Eksik",updatedAt:"—"}));this._pendingDocuments={};this._resetLiveInventory();this._inventoryScope=inventoryScope;}
       var noticeScope=authUi==='active_supplier'&&ctx&&ctx.companyId?String(ctx.companyId)+':'+String(ctx.role||''):'';
       var noticeChanged=noticeScope!==this._noticeScope;
       if(noticeChanged){this._noticeScope=noticeScope;this._noticeEpoch=(this._noticeEpoch||0)+1;this._liveNotices=[];this._noticeNext=null;this._noticeLoading=false;this._noticeError='';this._noticeLoaded=false;}
@@ -1547,8 +1547,9 @@ table.data tr.clickable{cursor:pointer}
       var notifications = loadLS(LS.notifications, null) || seedNotifications();
       var activities = loadLS(LS.activities, null) || seedActivities();
       var profile = loadLS(LS.profile, null) || seedProfile();
-      var documents = loadLS(LS.documents, null) || seedDocuments();
+      var documents = seedDocuments().filter(d => d.type !== "quality_certs").map(d => ({...d,status:"Eksik",updatedAt:"—"}));
       var settings = loadLS(LS.settings, null) || seedSettings();
+      settings.currency = "EUR";
       return {
         session: null,
         authUi: "unauthenticated",
@@ -1713,6 +1714,7 @@ table.data tr.clickable{cursor:pointer}
       this._state.modal = null;
       this._render();
       if(route==='inventory'||route==='overview')this._loadLiveInventory();
+      if(route==='documents')this._loadDocuments();
       if(route==='notifications')this._loadLiveNotifications();
     }
 
@@ -1772,7 +1774,7 @@ table.data tr.clickable{cursor:pointer}
             qty: req ? req.qty : 1,
             stockQty: 0,
             unitPrice: "",
-            currency: this._state.settings.currency || "TRY",
+            currency: "EUR",
             shipping: 0,
             condition: req ? req.conditionPref.split("/")[0].trim() : "Yeni",
             brand: "",
@@ -1807,7 +1809,7 @@ table.data tr.clickable{cursor:pointer}
     }
 
     _supplierEligibility() {
-      var docs = this._state.documents || [];
+      var docs = (this._state.documents || []).filter(d => !["quality_certs", "brand_authorization"].includes(d.type));
       var byType = {};
       docs.forEach(function (d) {
         if (d && d.type) byType[d.type] = hostDocStatus(d.status);
@@ -2157,6 +2159,7 @@ table.data tr.clickable{cursor:pointer}
         return;
       }
       if (action === "add-inventory") {
+        this._webProductKey = crypto.randomUUID();
         s.modal = { type: "inventory-edit", id: null };
         this._render();
         return;
@@ -2229,19 +2232,8 @@ table.data tr.clickable{cursor:pointer}
         this._render();
         return;
       }
-      if (action === "upload-doc") {
-        var doc = s.documents.find(function (d) {
-          return d.id === id;
-        });
-        if (doc) {
-          doc.status = "Yüklendi";
-          doc.updatedAt = new Date().toISOString().slice(0, 10);
-          this._persist();
-          this._toast("Belge yüklendi", doc.name);
-          this._render();
-        }
-        return;
-      }
+      if (action === "upload-doc") {this._selectDocument(id);return;}
+      if (action === "save-documents") {this._saveDocuments();return;}
     }
 
     _onSubmit(e) {
@@ -2255,6 +2247,7 @@ table.data tr.clickable{cursor:pointer}
       if (form.id === "pz-quote-form") {
         return;
       }
+      if (form.id === "pz-web-product-form") {this._saveWebProduct(form);return;}
       if (form.id === "pz-inv-form") {
         this._saveInventory(form);
         return;
@@ -2293,8 +2286,6 @@ table.data tr.clickable{cursor:pointer}
             totals.innerHTML =
               "<div><span>Ara toplam</span><span>" +
               esc(money(t.sub, this._state.quoteForm.currency)) +
-              "</span></div><div><span>Kargo</span><span>" +
-              esc(money(t.ship, this._state.quoteForm.currency)) +
               '</span></div><div class="tot"><span>Genel toplam</span><span>' +
               esc(money(t.total, this._state.quoteForm.currency)) +
               "</span></div>";
@@ -2579,7 +2570,7 @@ table.data tr.clickable{cursor:pointer}
     async _openServerDraft(rfqId,draftId) {
       try {
         var draft=await this._pricedQuoteApi("getSupplierQuoteDraft",{rfqId:rfqId,draftId:draftId});
-        this._state.quoteForm={requestId:rfqId,draftId:draft.draftId,partName:draft.partName,qty:draft.quantity,unitPrice:"",currency:"TRY",
+        this._state.quoteForm={requestId:rfqId,draftId:draft.draftId,partName:draft.partName,qty:draft.quantity,unitPrice:"",currency:"EUR",
           stockQty:draft.quantity,shipping:draft.shippingTotalMinor/100,condition:"Yeni",brand:"",leadTime:"",
           validity:draft.expiresAt,warranty:"",notes:"",attachmentName:"",serverApproved:true,status:"Taslak"};
         this._state.modal={type:"quote"};this._render();
@@ -2598,7 +2589,7 @@ table.data tr.clickable{cursor:pointer}
           try {message=JSON.parse(raw);} catch(e) {return;}
           if (message.reqId !== reqId) return;
           clearTimeout(timer);observer.disconnect();
-          if (!message.result || message.result.ok !== true) reject(new Error("Sunucu teklifi doğrulayamadı. Onaylı talep, fiyat kuralı ve üyelik bağlantısı gerekli."));
+          if (!message.result || message.result.ok !== true) reject(Object.assign(new Error(message.result?.error?.message || "Sunucu işlemi doğrulayamadı. Tekrar deneyin."),{code:message.result?.error?.code}));
           else resolve(message.result.data);
         });
         observer.observe(host,{attributes:true,attributeFilter:["data-pz-portal-api-result"]});
@@ -2617,7 +2608,7 @@ table.data tr.clickable{cursor:pointer}
       if (!/^\d+(\.\d{1,2})?$/.test(price) || Number(price) <= 0 || !Number.isSafeInteger(Math.round(Number(price)*100))) {
         this._toast("Fiyat geçersiz","Pozitif ve en fazla iki ondalıklı satış fiyatı girin.");return;
       }
-      if (form.currency !== "TRY") {this._toast("Para birimi","Bu teklif bağlantısı yalnız TRY destekliyor.");return;}
+      if (form.currency !== "EUR") {this._toast("Para birimi","Fiyat yalnız Euro (EUR) olarak girilebilir.");return;}
       this._quoteSending=true;
       try {
         var draft=await this._pricedQuoteApi("getSupplierQuoteDraft",{rfqId:form.requestId,draftId:form.draftId});
@@ -2626,7 +2617,7 @@ table.data tr.clickable{cursor:pointer}
         var result=await this._pricedQuoteApi("prepareSupplierPricedQuote",payload);
         if (!result || result.ready !== true || !Number.isSafeInteger(result.commissionRateBps) || !Number.isSafeInteger(result.supplierNetTotalMinor)) throw new Error("Fiyat dökümü doğrulanamadı.");
         if (this._state.quoteForm !== form) return;
-        var summary="Komisyon %"+(result.commissionRateBps/100)+": "+money(result.commissionTotalMinor/100,"TRY")+" · Net: "+money(result.supplierNetTotalMinor/100,"TRY");
+        var summary="Komisyon %"+(result.commissionRateBps/100)+": "+money(result.commissionTotalMinor/100,"EUR")+" · Net: "+money(result.supplierNetTotalMinor/100,"EUR");
         if (!send) {this._toast("Sunucudan doğrulanan teklif",summary);return;}
         var saved=await this._pricedQuoteApi("issueSupplierPricedQuote",payload);
         if (!saved || saved.persisted !== true || saved.quoteId !== draft.draftId) throw new Error("Teklif kaydı doğrulanamadı.");
@@ -2797,7 +2788,7 @@ table.data tr.clickable{cursor:pointer}
             quantity: "—",
             condition: "—",
             unit_price: "—",
-            currency: "TRY",
+            currency: "EUR",
             city: "—",
             lead_time: "—"
           }
@@ -2874,6 +2865,7 @@ table.data tr.clickable{cursor:pointer}
       var imported = 0;
       var errors = 0;
       (bulk.rows || []).forEach(function (row) {
+        if (row[map.currency] && row[map.currency] !== "EUR") {errors++;return;}
         var name = row[map.part_name];
         if (!name || name === "(Önizleme)") {
           errors++;
@@ -2890,7 +2882,7 @@ table.data tr.clickable{cursor:pointer}
           quantity: Number(row[map.quantity]) || 0,
           condition: row[map.condition] || "Yeni",
           unitPrice: Number(row[map.unit_price]) || 0,
-          currency: row[map.currency] || "TRY",
+          currency: "EUR",
           city: row[map.city] || "",
           leadTime: row[map.lead_time] || "",
           active: true,
@@ -3005,7 +2997,7 @@ table.data tr.clickable{cursor:pointer}
 
     _saveSettings(form) {
       var st = this._state.settings;
-      st.currency = form.currency.value;
+      st.currency = "EUR";
       st.leadDefault = form.leadDefault.value.trim();
       st.validityDefault = form.validityDefault.value.trim();
       st.emailNotif = !!form.emailNotif.checked;
@@ -3848,7 +3840,7 @@ table.data tr.clickable{cursor:pointer}
         }).join('');
         return '<article class="panel" data-live-listing="'+esc(p.listingKey)+'"><h3>'+esc(p.title)+'</h3><div>'+media+'</div><p>Ürün / stok kodu: '+esc(p.productCodeUnknown?'Belirtilmemiş · Diğer':p.productCode)+' · '+esc(p.stockQuantity)+' adet · '+esc(money(p.priceEur,'EUR'))+'</p><p>'+esc(status[p.status]||p.status)+'</p><details><summary>Kayıt bilgileri</summary><p>Satıcı no: '+esc(p.sellerNumber)+'</p><p>Kayıt no: '+esc(p.listingKey)+'</p><p>Kullanıcı no: '+esc(p.ownerMemberId)+'</p></details></article>';
       }).join('');
-      return '<div class="eyebrow">Stok ve Katalog</div><p>Mobil uygulama ve bu panel aynı tedarikçi kayıtlarını kullanır.</p><p style="overflow-wrap:anywhere">'+esc(identity.companyName||'')+' · '+esc(identity.sellerNumber||'')+'</p><div class="toolbar"><a class="btn primary sm" href="https://ilkibo.github.io/parca-zinciri-public-assets/mobil/" target="_blank" rel="noopener">Yeni Parça Ekle</a><button class="btn sm" data-action="reload-live-inventory">Yenile</button><input aria-label="Stok arama" placeholder="Stokta ara" data-inv-search value="'+esc(this._state.invSearch||'')+'"></div>'+(this._inventoryLoading?'<p>Ürünler yükleniyor…</p>':this._inventoryError?'<p role="alert">'+esc(this._inventoryError)+'</p>':content||'<p>Henüz ürün bulunmuyor.</p>');
+      return '<div class="eyebrow">Stok ve Katalog</div><p>Mobil uygulama ve bu panel aynı tedarikçi kayıtlarını kullanır.</p><p style="overflow-wrap:anywhere">'+esc(identity.companyName||'')+' · '+esc(identity.sellerNumber||'')+'</p><div class="toolbar"><button type="button" class="btn primary sm" data-action="add-inventory">Yeni Parça Ekle</button><button class="btn sm" data-action="reload-live-inventory">Yenile</button><input aria-label="Stok arama" placeholder="Stokta ara" data-inv-search value="'+esc(this._state.invSearch||'')+'"></div>'+(this._inventoryLoading?'<p>Ürünler yükleniyor…</p>':this._inventoryError?'<p role="alert">'+esc(this._inventoryError)+'</p>':content||'<p>Henüz ürün bulunmuyor.</p>');
     }
 
     _renderLegacyInventory() {
@@ -4098,7 +4090,7 @@ table.data tr.clickable{cursor:pointer}
     }
 
     _renderDocuments() {
-      var cards = this._state.documents
+      var cards = this._state.documents.filter(d => d.type !== "quality_certs")
         .map(function (d) {
           return (
             '<article class="doc-card"><div class="eyebrow">' +
@@ -4117,10 +4109,10 @@ table.data tr.clickable{cursor:pointer}
         .join("");
       return (
         '<div class="panel"><div class="panel-h"><h3>Belgeler ve doğrulama</h3><span class="chip warn">Doğrulama İncelemede</span></div>' +
-        '<p class="muted" style="margin-bottom:14px">Belge durumları operasyon incelemesine göre güncellenir.</p>' +
+        '<p class="muted" style="margin-bottom:14px">Belgeleri seçtikten sonra aşağıdaki kayıt düğmesine basın. Marka yetki belgesi isteğe bağlıdır; yoksa boş bırakabilirsiniz.</p>' +
         '<div class="doc-grid">' +
         cards +
-        "</div></div>"
+        '</div><button type="button" class="btn primary" style="margin-top:18px" data-action="save-documents">Belgeleri Parça Zinciri&#39;ne kaydet</button></div>'
       );
     }
 
@@ -4201,11 +4193,11 @@ table.data tr.clickable{cursor:pointer}
     _renderSettings() {
       var st = this._state.settings;
       return (
-        '<div class="split"><section class="panel"><h3>Hesap ve teklif varsayılanları</h3>' +
+        '<div class="split"><section class="panel"><h3>Hesap ve teklif ayarları</h3>' +
         '<form id="pz-settings-form" style="margin-top:14px">' +
         '<div class="grid-2">' +
         '<div class="field"><label for="currency">Para birimi</label><select id="currency" name="currency">' +
-        ["TRY", "USD", "EUR"]
+        ["EUR"]
           .map(function (c) {
             return (
               '<option value="' +
@@ -4219,8 +4211,8 @@ table.data tr.clickable{cursor:pointer}
           })
           .join("") +
         "</select></div>" +
-        this._formInput("leadDefault", "Teslim süresi varsayılanı", st.leadDefault) +
-        this._formInput("validityDefault", "Teklif geçerlilik varsayılanı", st.validityDefault) +
+        this._formInput("leadDefault", "Teslim süresi", st.leadDefault) +
+        this._formInput("validityDefault", "Teklif geçerlilik süresi", st.validityDefault) +
         "</div>" +
         '<div class="checks" style="margin:12px 0">' +
         '<label><input type="checkbox" name="emailNotif" ' +
@@ -4231,7 +4223,7 @@ table.data tr.clickable{cursor:pointer}
         "/> WhatsApp bildirimleri</label>" +
         '<label><input type="checkbox" name="quoteNotif" ' +
         (st.quoteNotif ? "checked" : "") +
-        "/> Teklif aktivite bildirimleri</label>" +
+        "/> Teklif hareketleri: mobil ve e-posta</label>" +
         '<label><input type="checkbox" name="stockNotif" ' +
         (st.stockNotif ? "checked" : "") +
         "/> Stok uyarıları</label>" +
@@ -4315,6 +4307,7 @@ table.data tr.clickable{cursor:pointer}
             ["Parça", o.partName],
             ["Adet", o.qty],
             ["Toplam", money(o.total, o.currency)],
+            ...(o.serverPersisted === true && o.saleFx?.acceptedAt && o.saleFx.source === "TCMB" && Number.isSafeInteger(o.saleFx.tryMinor) ? [["Satış anındaki TL karşılığı", money(o.saleFx.tryMinor / 100, "TRY")], ["TCMB Euro döviz satış kuru", (o.saleFx.rateScaled / 10000) + " TL · " + o.saleFx.date]] : []),
             ["Şehir", o.city],
             ["Durum", o.status],
             ["Kargo", o.cargo || "—"]
@@ -4366,7 +4359,7 @@ table.data tr.clickable{cursor:pointer}
         this._qField("Stokta bulunan adet", "stockQty", f.stockQty, "number") +
         this._qField("Birim satış fiyatı (vergi dahil)", "unitPrice", f.unitPrice, "number") +
         '<div class="field"><label for="qf-currency">Para birimi</label><select id="qf-currency" data-quote-field="currency">' +
-        ["TRY", "USD", "EUR"]
+        ["EUR"]
           .map(function (c) {
             return (
               '<option value="' +
@@ -4383,7 +4376,6 @@ table.data tr.clickable{cursor:pointer}
         this._qField("Parça durumu", "condition", f.condition) +
         this._qField("Marka / üretici", "brand", f.brand) +
         this._qField("Teslim süresi", "leadTime", f.leadTime) +
-        this._qField("Kargo bedeli", "shipping", f.shipping, "number") +
         this._qField("Teklif geçerlilik süresi", "validity", f.validity) +
         this._qField("Garanti süresi", "warranty", f.warranty) +
         "</div>" +
@@ -4397,13 +4389,11 @@ table.data tr.clickable{cursor:pointer}
         "</div>" +
         '<div class="calc-box" data-quote-totals><div><span>Ara toplam</span><span>' +
         esc(money(t.sub, f.currency)) +
-        "</span></div><div><span>Kargo</span><span>" +
-        esc(money(t.ship, f.currency)) +
         '</span></div><div class="tot"><span>Genel toplam</span><span>' +
         esc(money(t.total, f.currency)) +
         "</span></div></div>" +
         '<div class="apply-actions">' +
-        '<p role="status">Komisyon sunucuda hesaplanır. Önizle ile komisyon ve net tutarı kontrol edin. Kargo onaylı teklif kuralından alınır.</p>' +
+        '<p role="status">Komisyon sunucuda hesaplanır. Önizle ile komisyon ve net tutarı kontrol edin.</p>' +
         '<button type="button" class="btn" data-action="save-quote-draft">Yerel Taslak Kaydet</button>' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap;flex-direction:column;align-items:flex-end">' +
         '<div style="display:flex;gap:8px;flex-wrap:wrap">' +
@@ -4470,8 +4460,6 @@ table.data tr.clickable{cursor:pointer}
         esc(money(f.unitPrice, f.currency)) +
         "</span></div><div><span>Ara toplam</span><span>" +
         esc(money(t.sub, f.currency)) +
-        "</span></div><div><span>Kargo</span><span>" +
-        esc(money(t.ship, f.currency)) +
         '</span></div><div class="tot"><span>Genel toplam</span><span>' +
         esc(money(t.total, f.currency)) +
         "</span></div></div>" +
@@ -4588,7 +4576,91 @@ table.data tr.clickable{cursor:pointer}
       );
     }
 
+
+    _webCall(operation, data) {return this._pricedQuoteApi('supplierWebCall',{operation:operation,data:data||{}});}
+
+    async _uploadWebFile(file, operation, type) {
+      const scope=this._inventoryScope;
+      const started=await this._webCall(operation,{name:file.name,mime:file.type,size:file.size,type:type});
+      if(scope!==this._inventoryScope)throw Error("Oturum değişti. Yeniden giriş yapın.");
+      const url=new URL(started.uploadUrl);
+      if(url.protocol!=='https:'||!/(^|\.)(wix\.com|wixapis\.com|wixmp\.com)$/.test(url.hostname))throw Error('Yükleme adresi doğrulanamadı.');
+      url.searchParams.set('filename',started.fileName);
+      const response=await fetch(url.toString(),{method:'PUT',headers:{'Content-Type':file.type},body:file,credentials:'omit'});
+      if(!response.ok)throw Error('Dosya yüklenemedi. Tekrar deneyin.');
+      const result=await response.json(),fileId=result.file?.id||result.file?._id;
+      if(!fileId)throw Error('Dosya kimliği alınamadı.');
+      return {ticketId:started.ticketId,fileId:fileId};
+    }
+
+    _renderWebProductModal() {
+      const input=(name,label,type='text',extra='')=>'<div class="field"><label for="web-'+name+'">'+label+'</label><input id="web-'+name+'" name="'+name+'" type="'+type+'" '+extra+' required></div>';
+      const select=(name,label,values)=>'<div class="field"><label for="web-'+name+'">'+label+'</label><select id="web-'+name+'" name="'+name+'">'+values.map(v=>'<option value="'+v[0]+'">'+v[1]+'</option>').join('')+'</select></div>';
+      return '<div class="modal-overlay" role="dialog" aria-modal="true" aria-label="Yeni parça ekle"><div class="modal-panel"><div class="panel-h"><h3>Yeni parça ekle</h3><button type="button" class="btn sm" data-action="close-modal">Kapat</button></div><form id="pz-web-product-form"><div class="grid-2">'+
+        input('partName','Parça adı')+input('productCode','Ürün kodu')+input('oem','OEM kodu')+
+        select('machineType','Makine türü',[['excavator','Ekskavatör'],['wheel_loader','Yükleyici'],['telehandler','Telehandler'],['forklift','Forklift'],['backhoe_loader','Beko loder'],['road_roller','Yol silindiri'],['heavy_offroad_truck','Ağır yük kamyonu']])+
+        input('manualBrandName','Makine markası')+input('manualModelName','Makine modeli')+input('machineSerialNumber','Makine seri numarası')+
+        select('partOriginType','Parça türü',[['original','Orijinal'],['aftermarket','Yan sanayi']])+
+        select('partCondition','Parça durumu',[['new_boxed','Yeni, kutulu'],['new_unboxed','Yeni, kutusuz'],['used_good','Çıkma, iyi durumda'],['repaired_working_good','Revizyonlu, çalışır durumda']])+
+        input('stockQuantity','Stok adedi','number','min="1" step="1"')+input('priceEur','Birim fiyat (Euro / EUR)','number','min="0.01" step="0.01"')+
+        '<div class="field"><label for="web-images">Parça fotoğrafları (1–6 adet)</label><input id="web-images" name="images" type="file" accept="image/jpeg,image/png,image/webp" multiple required></div></div><p class="muted">Fiyatlar yalnız Euro olarak kaydedilir. Parçanız kayıttan sonra Parça Zinciri onayına gönderilir.</p><p role="status" data-web-status></p><button class="btn primary" type="submit">Parçayı kaydet ve onaya gönder</button></form></div></div>';
+    }
+
+    async _saveWebProduct(form) {
+      if(this._webSaving)return;
+      const values=Object.fromEntries(new FormData(form)), files=Array.from(form.images.files);
+      const status=form.querySelector('[data-web-status]'),button=form.querySelector('[type="submit"]');
+      if(files.length<1||files.length>6||files.some(f=>!['image/jpeg','image/png','image/webp'].includes(f.type)||f.size>10*1024*1024)){status.textContent='1–6 JPG, PNG veya WebP fotoğraf seçin; her biri en fazla 10 MB.';return;}
+      this._webSaving=true;button.disabled=true;
+      const scope=this._inventoryScope;
+      try {
+        const refs=[];
+        for(let i=0;i<files.length;i++){
+          if(scope!==this._inventoryScope)throw Error("Oturum değişti.");
+          status.textContent='Fotoğraf yükleniyor: '+(i+1)+' / '+files.length;
+          const ref=files[i]._pzUpload||await this._uploadWebFile(files[i],'uploadStart');files[i]._pzUpload=ref;
+          await this._webCall('uploadConfirm',ref);refs.push(ref.ticketId);
+        }
+        if(scope!==this._inventoryScope)throw Error('Oturum değişti. Yeniden giriş yapın.');
+        status.textContent='Parça sunucuya kaydediliyor…';
+        this._webProductKey=this._webProductKey||crypto.randomUUID();
+        const result=await this._webCall('create',{...values,listingType:'part',currency:'EUR',priceEur:values.priceEur,stockQuantity:Number(values.stockQuantity),machineBrandId:'__other__',machineModelId:'__other__',productCodeUnknown:false,oemUnknown:false,mediaIds:refs,idempotencyKey:this._webProductKey});
+        if(!result?.listingKey||!['pending','approved'].includes(result.status))throw Error('Parça kaydı doğrulanamadı.');
+        if(scope!==this._inventoryScope)return;
+        this._webProductKey=null;this._state.modal=null;this._render();await this._loadLiveInventory();this._toast('Parça kaydedildi','Parça Zinciri onayına gönderildi.');
+      }catch(e){status.textContent=e.message||'Kayıt tamamlanamadı. Tekrar deneyin.';}
+      finally{this._webSaving=false;button.disabled=false;}
+    }
+
+    _selectDocument(id) {
+      const doc=this._state.documents.find(d=>d.id===id);if(!doc)return;
+      const input=document.createElement('input');input.type='file';input.accept='application/pdf,image/jpeg,image/png';
+      input.onchange=()=>{const file=input.files?.[0];if(!file)return;if(!['application/pdf','image/jpeg','image/png'].includes(file.type)||file.size>10*1024*1024){this._toast('Dosya uygun değil','PDF, JPG veya PNG seçin; en fazla 10 MB.');return;}
+        this._pendingDocuments=this._pendingDocuments||{};this._pendingDocuments[doc.type]={file:file};doc.status='Seçildi — kaydedilmedi';doc.updatedAt=file.name;this._render();};input.click();
+    }
+
+    async _loadDocuments() {
+      const scope=this._inventoryScope;if(!scope)return;
+      try{const result=await this._webCall('documents');if(scope!==this._inventoryScope)return;
+        this._state.documents=this._state.documents.filter(d=>d.type!=='quality_certs').map(d=>{if(this._pendingDocuments?.[d.type])return d;const stored=result.documents?.find(x=>x.type===d.type);return {...d,status:stored?(stored.status==='approved'?'Onaylandı':'İnceleniyor'):'Eksik',updatedAt:stored?.updatedAt?.slice(0,10)||'—'};});if(this._state.route==='documents')this._render();
+      }catch(e){this._toast('Belgeler alınamadı',e.message);}
+    }
+
+    async _saveDocuments() {
+      if(this._documentsSaving)return;
+      const selected=Object.entries(this._pendingDocuments||{}),scope=this._inventoryScope;
+      if(!selected.length){this._toast('Belge seçin','Kaydetmek için yeni veya güncel belge seçin.');return;}
+      this._documentsSaving=true;
+      try{const refs=[];for(const [type,entry] of selected){if(scope!==this._inventoryScope)throw Error('Oturum değişti.');this._toast('Belge yükleniyor',entry.file.name);entry.upload=entry.upload||await this._uploadWebFile(entry.file,'documentUploadStart',type);refs.push(entry.upload);}
+        if(scope!==this._inventoryScope)throw Error('Oturum değişti. Yeniden giriş yapın.');
+        const result=await this._webCall('saveDocuments',{documents:refs});if(result.persisted!==true)throw Error('Belge kaydı doğrulanamadı.');
+        if(scope!==this._inventoryScope)return;
+        this._pendingDocuments={};await this._loadDocuments();this._toast('Belgeler Parça Zinciri’ne kaydedildi','Belgeleriniz incelemeye alındı.');
+      }catch(e){this._toast('Belgeler kaydedilmedi',e.message);}finally{this._documentsSaving=false;}
+    }
+
     _renderInventoryModal() {
+      if (this._state.authUi === "active_supplier") return this._renderWebProductModal();
       var id = this._state.modal && this._state.modal.id;
       var item = id
         ? this._state.inventory.find(function (x) {
@@ -4605,7 +4677,7 @@ table.data tr.clickable{cursor:pointer}
         quantity: 0,
         condition: "Yeni",
         unitPrice: 0,
-        currency: "TRY",
+        currency: "EUR",
         city: "",
         leadTime: "",
         active: true
@@ -4642,7 +4714,7 @@ table.data tr.clickable{cursor:pointer}
         "</select></div>" +
         this._formInput("unitPrice", "Birim fiyat", v.unitPrice) +
         '<div class="field"><label for="currency">Para birimi</label><select id="currency" name="currency">' +
-        ["TRY", "USD", "EUR"]
+        ["EUR"]
           .map(function (c) {
             return (
               '<option value="' +
