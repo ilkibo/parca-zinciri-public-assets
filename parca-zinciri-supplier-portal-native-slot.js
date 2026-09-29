@@ -4722,7 +4722,7 @@ table.data tr.clickable{cursor:pointer}
           card.querySelector('[data-action="remove-product-photo"]').hidden=false;
         });
         this._syncWebProductFields(form);
-        if(row.listingType==='machine') {
+        if(['part','equipment','machine'].includes(row.listingType)) {
           form._loading=true;form.querySelector('[type="submit"]').disabled=true;
           fields.namedItem('listingType').disabled=true;
           form.querySelector('[data-product-fields]').disabled=true;
@@ -4789,7 +4789,7 @@ table.data tr.clickable{cursor:pointer}
 
     _syncWebProductFields(form, changed) {
       const fields = form.elements, catalog = this._webMachineCatalog;
-      const kind = fields.listingType.value, isMachine = kind === 'machine';
+      const kind = fields.listingType.value, isMachine = kind === 'machine', hasCompatibility = ['part','equipment','machine'].includes(kind);
       form.querySelectorAll('[data-product-kind]').forEach(box => {
         box.hidden = !box.dataset.productKind.split(' ').includes(kind);
         box.querySelectorAll('input,select,textarea').forEach(field => field.disabled = box.hidden);
@@ -4802,10 +4802,11 @@ table.data tr.clickable{cursor:pointer}
         const rows = catalog.modelsByTypeAndBrand[fields.machineType.value]?.[fields.machineBrandId.value] || [{id:catalog.otherModelId,name:'Listede Yok / Diğer'}];
         fields.machineModelId.innerHTML = options(rows);
       }
-      fields.machineBrandId.disabled = !isMachine || !catalog || !fields.machineType.value;
-      fields.machineModelId.disabled = !isMachine || !catalog || !fields.machineBrandId.value;
+      fields.machineBrandId.disabled = !hasCompatibility || !catalog || !fields.machineType.value;
+      fields.machineModelId.disabled = !hasCompatibility || !catalog || !fields.machineBrandId.value;
+      fields.machineSerialNumber.required = isMachine;
       for (const [selectName,manualName,other] of [['machineBrandId','manualBrandName',catalog?.otherBrandId],['machineModelId','manualModelName',catalog?.otherModelId]]) {
-        const manual = isMachine && !!other && fields[selectName].value === other;
+        const manual = hasCompatibility && !!other && fields[selectName].value === other;
         fields[manualName].closest('.field').hidden = !manual;
         fields[manualName].required = manual;
         fields[manualName].disabled = !manual;
@@ -4819,7 +4820,7 @@ table.data tr.clickable{cursor:pointer}
       this._root.querySelector('#web-product-title').textContent = form._editing?noun+' Düzenle':'Yeni '+noun+' Ekle';
       form.querySelector('[data-photo-heading]').textContent = noun+' fotoğrafları';
       form.querySelector('[type="submit"]').textContent = form._editing?'Değişiklikleri kaydet ve yeniden onaya gönder':{part:'Parçayı',equipment:'Ekipmanı',machine:'Makineyi',workshop:'Malzemeyi'}[kind]+' kaydet ve onaya gönder';
-      if(changed==='listingType' && isMachine && !catalog)this._loadWebProductCatalog();
+      if(changed==='listingType' && hasCompatibility && !catalog)this._loadWebProductCatalog();
     }
 
     _renderWebProductPage() {
@@ -4832,11 +4833,11 @@ table.data tr.clickable{cursor:pointer}
         select('partCondition','Parça durumu',[['new_boxed','Yeni, kutulu'],['new_unboxed','Yeni, kutusuz'],['used_good','Çıkma, iyi durumda'],['repaired_working_good','Revizyonlu, çalışır durumda']])+'</div>'+
         '<div class="grid-2" data-product-kind="equipment" hidden>'+select('equipmentType','Ekipman türü',[['engine','Motor'],['transmission','Şanzıman'],['front_differential','Ön diferansiyel'],['rear_differential','Arka diferansiyel'],['operator_cabin','Operatör kabini'],['chassis','Şase'],['hydraulic_cylinder','Hidrolik silindir']],'disabled')+
         select('equipmentCondition','Ekipman durumu',[['new_original','Sıfır, orijinal'],['original_reconditioned','Orijinal, revizyonlu']],'disabled')+'<div class="field"><label for="web-equipmentWorkDescription">Revizyonda yapılan işlemler</label><textarea id="web-equipmentWorkDescription" name="equipmentWorkDescription" maxlength="2000" disabled></textarea></div></div>'+
-        '<div data-product-kind="machine" hidden><h3>Makine bilgileri</h3><p role="status" data-catalog-status>Makine kataloğu yükleniyor…</p><div class="grid-2">'+
+        '<div data-product-kind="part equipment machine"><h3>Kullanıldığı makine</h3><p class="muted">Tam model ve varyasyonu seçin. DX300 ile DX300LC-5 farklıdır. Listede yoksa Diğer seçip etiketteki tam modeli yazın.</p><p role="status" data-catalog-status>Makine kataloğu yükleniyor…</p><div class="grid-2">'+
         select('machineType','Makine türü',[['','Seçiniz'],['excavator','Ekskavatör'],['wheel_loader','Loader / Lastikli Yükleyici'],['telehandler','Telehandler / Teleskopik Yükleyici'],['forklift','Forklift'],['backhoe_loader','Beko Loder / Kazıcı Yükleyici'],['road_roller','Yol Silindiri'],['heavy_offroad_truck','Ağır Yük Off-Road / Kaya Kamyonu']],'disabled')+
         select('machineBrandId','Makine markası',[['','Önce makine türünü seçin']],'disabled')+select('machineModelId','Makine modeli',[['','Önce marka seçin']],'disabled')+
         '<div class="field" hidden><label for="web-manualBrandName">Diğer marka adı</label><input id="web-manualBrandName" name="manualBrandName" maxlength="120" disabled></div><div class="field" hidden><label for="web-manualModelName">Diğer model adı</label><input id="web-manualModelName" name="manualModelName" maxlength="120" disabled></div>'+input('machineSerialNumber','Makine seri numarası','text','maxlength="80" disabled')+
-        input('modelYear','Model yılı','number','min="1900" max="'+new Date().getFullYear()+'" disabled')+'<div class="field"><label for="web-machineModificationSummary">Makinede yapılan işlemleri yazınız</label><textarea id="web-machineModificationSummary" name="machineModificationSummary" required maxlength="2000" disabled></textarea></div></div></div>'+
+        '</div></div><div data-product-kind="machine" hidden><div class="grid-2">'+input('modelYear','Model yılı','number','min="1900" max="'+new Date().getFullYear()+'" disabled')+'<div class="field"><label for="web-machineModificationSummary">Makinede yapılan işlemleri yazınız</label><textarea id="web-machineModificationSummary" name="machineModificationSummary" required maxlength="2000" disabled></textarea></div></div></div>'+
         '<div data-product-kind="part equipment">'+input('productCode','Parça numarası','text','maxlength="80"')+'<label class="check"><input name="productCodeUnknown" type="checkbox">Parça no elimde yok</label></div>'+
         '<h3>Stok ve fiyat</h3><div class="grid-2">'+input('stockQuantity','Stok adedi','number','min="1" step="1"')+input('priceEur','Birim fiyat (Euro / EUR)','number','min="0.01" step="0.01"')+'</div>'+
         '<div class="field"><label for="web-description">Açıklama (isteğe bağlı)</label><textarea id="web-description" name="description" maxlength="4000"></textarea></div>'+
@@ -4849,7 +4850,7 @@ table.data tr.clickable{cursor:pointer}
       values.productCode=values.productCodeUnknown?'':form.elements.productCode.value;
       const status=form.querySelector('[data-web-status]'),button=form.querySelector('[type="submit"]');
       if(cards.length<1||cards.length>6||files.some(f=>!['image/jpeg','image/png','image/webp'].includes(f.type)||f.size>10*1024*1024)){status.textContent='1–6 JPG, PNG veya WebP fotoğraf seçin; her biri en fazla 10 MB.';return;}
-      if(values.listingType === 'machine' && (!this._webMachineCatalog || !values.machineBrandId || !values.machineModelId)){status.textContent='Makine kataloğunu yükleyip marka ve model seçin.';return;}
+      if(['part','equipment','machine'].includes(values.listingType) && (!this._webMachineCatalog || !values.machineType || !values.machineBrandId || !values.machineModelId)){status.textContent='Makine kataloğunu yükleyip makine türü, marka ve tam model/varyasyon seçin.';return;}
       this._webSaving=true;button.disabled=true;form.querySelector('[data-product-fields]').disabled=true;
       const progress=form.querySelector('[data-upload-progress]'),totalBytes=files.reduce((n,f)=>n+f.size,0);
       const loaded=cards.map(()=>0);
