@@ -1707,9 +1707,11 @@ table.data tr.clickable{cursor:pointer}
       });
       this._root.addEventListener("input", function (e) {
         self._onInput(e);
+        if (e.target.form?.id === 'pz-web-product-form') self._syncRequiredSteps(e.target.form);
       });
       this._root.addEventListener("change", function (e) {
         self._onChange(e);
+        if (e.target.form?.id === 'pz-web-product-form') self._syncRequiredSteps(e.target.form);
       });
       this._root.addEventListener("keydown", function (e) {
         if (e.key === "Escape") self._onEscape();
@@ -4788,6 +4790,42 @@ table.data tr.clickable{cursor:pointer}
       }
     }
 
+
+    _syncRequiredSteps(form) {
+      if (!form) return;
+      if (!form.querySelector('[data-step-style]')) {
+        const style = document.createElement('style');
+        style.dataset.stepStyle = '';
+        style.textContent = '.pz-next-required{outline:2px solid #ff6b00!important;outline-offset:2px;background:#fff3e8!important;color:#20160e!important}.pz-step-hint{display:block;color:#a83b00;background:#fff3e8;border-left:3px solid #ff6b00;padding:5px 8px;margin:6px 0;font:600 12px/1.4 Arial,sans-serif;letter-spacing:0;text-transform:none}';
+        form.appendChild(style);
+      }
+      form.querySelectorAll('.pz-next-required').forEach(field => {
+        field.classList.remove('pz-next-required');
+        const ids = (field.getAttribute('aria-describedby') || '').split(/\s+/).filter(id => id && id !== 'pz-next-step-hint');
+        if (ids.length) field.setAttribute('aria-describedby', ids.join(' '));
+        else field.removeAttribute('aria-describedby');
+      });
+      form.querySelectorAll('[data-step-hint]').forEach(hint => hint.remove());
+      const fields = form.elements;
+      const names = ['machineType', 'machineBrandId'];
+      if (fields.machineBrandId?.value === '__other__') names.push('manualBrandName');
+      names.push('machineModelId');
+      if (fields.machineModelId?.value === '__other__') names.push('manualModelName');
+      names.push('partGroupId', 'partSubgroupId');
+      const field = names.map(name => fields[name]).find(control =>
+        control && !control.disabled && !control.closest('[hidden]') &&
+        !control.value.trim());
+      if (!field) return;
+      field.classList.add('pz-next-required');
+      const hint = document.createElement('span');
+      hint.id = 'pz-next-step-hint';
+      hint.dataset.stepHint = '';
+      hint.className = 'pz-step-hint';
+      hint.textContent = 'Sıradaki adım: ' + (field.labels?.[0]?.textContent.trim() || 'Bu alanı tamamlayın');
+      field.insertAdjacentElement('afterend', hint);
+      field.setAttribute('aria-describedby', [field.getAttribute('aria-describedby'), hint.id].filter(Boolean).join(' '));
+    }
+
     _syncWebProductFields(form, changed) {
       const fields = form.elements, catalog = this._webMachineCatalog;
       const kind = fields.listingType.value, isMachine = kind === 'machine', hasCompatibility = ['part','equipment','machine'].includes(kind);
@@ -4825,6 +4863,7 @@ table.data tr.clickable{cursor:pointer}
       form.querySelector('[data-photo-heading]').textContent = noun+' fotoğrafları';
       form.querySelector('[type="submit"]').textContent = form._editing?'Değişiklikleri kaydet ve yeniden onaya gönder':{part:'Parçayı',equipment:'Ekipmanı',machine:'Makineyi',workshop:'Malzemeyi'}[kind]+' kaydet ve onaya gönder';
       if(changed==='listingType' && hasCompatibility && !catalog)this._loadWebProductCatalog();
+      this._syncRequiredSteps(form);
     }
 
     _renderWebProductPage() {
