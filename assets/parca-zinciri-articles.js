@@ -1,6 +1,34 @@
+// BEGIN ARTICLE COVER
+// Shared, deterministic vector cover. No upload, remote image or paid service.
+function pzArticleCover(title) {
+  const xml = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&apos;'}[c]));
+  const text = String(title || 'Makale başlığınız burada görünecek').replace(/\s+/g, ' ').trim().slice(0,180);
+  const lines = [];
+  let line = '';
+  for (const word of text.split(' ')) {
+    for (const part of word.match(/.{1,32}/gu) || ['']) {
+      if (line && (line + ' ' + part).length > 32) { lines.push(line); line = ''; }
+      line += (line ? ' ' : '') + part;
+    }
+  }
+  if (line) lines.push(line);
+  const size = lines.length > 5 ? 42 : 50;
+  const step = size + 10;
+  const top = 190 + Math.max(0, (330 - lines.length * step) / 2);
+  const svg = '<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">' +
+    '<rect width="1200" height="630" fill="#17191c"/><path d="M890 0h310v630H710z" fill="#212429"/>' +
+    '<g fill="none" stroke="#ff6b00" stroke-width="2" opacity=".23"><circle cx="1080" cy="300" r="180"/><circle cx="1080" cy="300" r="135"/><path d="M840 300h360M1080 60v480"/></g>' +
+    '<rect x="0" y="0" width="14" height="630" fill="#ff6b00"/><rect x="76" y="64" width="34" height="34" rx="8" fill="#ff6b00"/>' +
+    '<g font-family="Arial, sans-serif"><text x="128" y="91" fill="#fff" font-weight="700" font-size="29">PARÇA ZİNCİRİ</text>' +
+    '<text x="76" y="144" fill="#ff8b38" font-size="18" letter-spacing="4">BİLGİ MERKEZİ / MAKALELER</text>' +
+    '<g fill="#fff" font-weight="700" font-size="'+size+'">' + lines.map((l,i)=>'<text x="76" y="'+(top+i*step)+'">'+xml(l)+'</text>').join('') + '</g>' +
+    '<path d="M76 555h100" stroke="#ff6b00" stroke-width="6"/><text x="76" y="595" fill="#c8cdd3" font-size="19">İş makineleri · Yedek parçalar · Bakım</text></g></svg>';
+  return 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg);
+}
+// END ARTICLE COVER
 (() => {
  const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
- const cover=a=>/^https:\/\/static\.wixstatic\.com\/media\/[A-Za-z0-9_~./%-]+$/.test(a.coverUrl||'')?'<img loading="lazy" src="'+esc(a.coverUrl)+'" alt="'+esc(a.coverAlt||a.title)+'">':'';
+ const cover=a=>'<img class="article-auto-cover" loading="lazy" src="'+esc(pzArticleCover(a.title))+'" alt="'+esc(a.title)+' — Parça Zinciri makale kapağı" style="height:auto;aspect-ratio:1200/630;object-fit:contain">';
  class Articles extends HTMLElement {
   constructor(){super();this.attachShadow({mode:'open'});this.offset=0;this.items=[];}
   connectedCallback(){this.offset=0;this.items=[];this.load();}
@@ -34,3 +62,4 @@
  }
  if(!customElements.get('parca-zinciri-articles'))customElements.define('parca-zinciri-articles',Articles);
 })();
+
