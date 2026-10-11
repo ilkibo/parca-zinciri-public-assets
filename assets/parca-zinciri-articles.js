@@ -3,12 +3,15 @@
  const cover=a=>/^https:\/\/static\.wixstatic\.com\/media\/[A-Za-z0-9_~./%-]+$/.test(a.coverUrl||'')?'<img loading="lazy" src="'+esc(a.coverUrl)+'" alt="'+esc(a.coverAlt||a.title)+'">':'';
  class Articles extends HTMLElement {
   constructor(){super();this.attachShadow({mode:'open'});this.offset=0;this.items=[];}
-  connectedCallback(){this.load();}
+  connectedCallback(){this.offset=0;this.items=[];this.load();}
   async load(){
    this.shadowRoot.innerHTML=this.shell('<p role="status">Makaleler yükleniyor…</p>');
    try{
     const slug=new URL(location.href).searchParams.get('makale')||'';
-    const r=await fetch('/_functions/articles?offset='+this.offset+'&slug='+encodeURIComponent(slug),{cache:'no-store'});
+    const params=new URLSearchParams({offset:String(this.offset),slug});
+    const current=new URL(location.href).searchParams;
+    for(const key of ['branchId','siteRevision','rc'])if(current.has(key))params.set(key,current.get(key));
+    const r=await fetch('/_functions/articles?'+params,{cache:'no-store'});
     const data=await r.json();if(!r.ok||!data.ok)throw Error(r.status===404?'Makale bulunamadı veya yayından kaldırıldı.':'Makaleler yüklenemedi.');
     let html;
     if(slug){
@@ -19,6 +22,11 @@
      html='<p class="eyebrow">PARÇA ZİNCİRİ BİLGİ MERKEZİ</p><h1>Makaleler</h1><p class="lead">İş makineleri, yedek parçalar ve bakım hakkında bilgiler.</p><div class="grid">'+this.items.map(a=>'<a class="card" href="/makaleler?makale='+encodeURIComponent(a.slug)+'">'+cover(a)+'<div><p class="meta">'+esc(a.category||'Bilgi Merkezi')+'</p><h2>'+esc(a.title)+'</h2><p>'+esc(a.excerpt)+'</p><strong>Makaleyi oku →</strong></div></a>').join('')+'</div>'+(!this.items.length?'<p>Henüz yayınlanmış makale bulunmuyor.</p>':'')+(data.data.hasMore?'<button>Daha fazla makale</button>':'');
     }
     this.shadowRoot.innerHTML=this.shell(html);
+    for(const a of this.shadowRoot.querySelectorAll('a[href^="/"]')){
+     const url=new URL(a.getAttribute('href'),location.origin);
+     for(const key of ['branchId','siteRevision','rc'])if(current.has(key))url.searchParams.set(key,current.get(key));
+     a.setAttribute('href',url.pathname+url.search);
+    }
     this.shadowRoot.querySelector('button')?.addEventListener('click',()=>{this.offset+=30;this.load();});
    }catch(e){this.shadowRoot.innerHTML=this.shell('<p role="alert">'+esc(e.message)+'</p><a href="/makaleler">Yeniden dene</a>');}
   }
