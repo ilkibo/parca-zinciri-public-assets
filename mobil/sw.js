@@ -1,5 +1,7 @@
-const CACHE = "pz-mobile-shell-v18-web-login";
+const CACHE = "pz-mobile-shell-v19-shared-product-panel";
 const SHELL = [
+  "/web-product-panel.js",
+  "/web-admin-console.js",
   "/web-login.js",
   "/recorder.js",
   "/notifications.js",

@@ -18,6 +18,8 @@ import {recordVideo} from './recorder.js';
 import {mountNotifications,checkNotifications} from './notifications.js';
 import {mountWebLogin} from './web-login.js';
 let disposeWebLogin=null;
+import {mountWebProductPanel} from './web-product-panel.js';
+let disposeWebPanel=null;
 let editingKey='', editSeed=null, nextOffset=null, listSearch='', listStatus='', offlineEditor=false;
 let listRequest=0;
 let liveMode = !['localhost','127.0.0.1'].includes(location.hostname);
@@ -108,6 +110,7 @@ function textarea(name, label, required = false) {
   return `<label class="field full">${label}<textarea name="${name}" ${required ? "required" : ""}></textarea></label>`;
 }
 function showLogin() {
+  disposeWebPanel?.();disposeWebPanel=null;document.body.classList.remove('web-product-panel');
   disposeWebLogin?.();disposeWebLogin=null;
   screenHistory?.dispose(); screenHistory = null;
   cleanup();
@@ -139,6 +142,7 @@ function showLogin() {
   );
 }
 async function boot() {
+  disposeWebPanel?.();disposeWebPanel=null;
   disposeWebLogin?.();disposeWebLogin=null;
   try {
     const config = ['localhost','127.0.0.1'].includes(location.hostname)&&navigator.onLine?await api('config').catch(e=>{if(hasRememberedSession())return {mode:'live'};throw e;}):{mode:'live'};
@@ -152,6 +156,11 @@ async function boot() {
     document.querySelector("#identity").innerHTML =
       `<span>${esc(identity.companyName || "Parça Zinciri Yönetim")}</span><strong>${esc(identity.sellerNumber || "Yönetim hesabı")}</strong>`;
     try{localStorage.setItem('pz-mobile-offline-context',JSON.stringify({identity,machineCatalog}));}catch{}
+    if(liveMode&&identity.role==='platform_admin'){
+      screenHistory?.dispose();screenHistory=null;nav.replaceChildren();
+      disposeWebPanel=await mountWebProductPanel(app,{api,identity,onSessionChanged:boot,onLogout:async()=>{await api('logout',{});message('');showLogin();}});
+      return;
+    }
     products=[];nextOffset=null;
     if(!liveMode)products=await api('products');
     screenHistory?.dispose();
@@ -224,7 +233,6 @@ async function render(next, listingKey = '') {
   if(liveMode&&identity.role!=='platform_admin')await loadProducts();
 }
 function productsView(listingKey = '') {
-  if (liveMode && identity.role === "platform_admin") {app.innerHTML = '<h1>Ürün onayları ve fiyatlar.</h1><div id="mobile-workbench"></div>'; mountListingWorkbench(app.querySelector("#mobile-workbench"), {api,initialKey:listingKey,onNavigate:key=>screenHistory?.record({view:'products',listingKey:key}),onBack:()=>screenHistory.back(()=>render('products'))}); return;}
   const filters = Object.fromEntries(
     ["search", "status-filter", "supplier-filter"].map((id) => [id, document.getElementById(id)?.value || ""]),
   );

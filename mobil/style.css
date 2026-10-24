@@ -15,6 +15,10 @@
 body {
   margin: 0;
 }
+body.web-product-panel>header,body.web-product-panel>.demo-banner,body.web-product-panel>#identity,body.web-product-panel>#navigation,body.web-product-panel>div[style]{display:none}
+body.web-product-panel>#app{max-width:none;padding:0;margin:0;width:100%}
+body.web-product-panel>#message:empty{display:none}
+parca-zinciri-admin-ops{display:block;width:100%}
 button,
 input,
 select,
