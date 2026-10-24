@@ -1,5 +1,8 @@
-const CACHE = "pz-mobile-shell-v19-shared-product-panel";
+const CACHE = "pz-mobile-shell-v20-light-typography";
 const SHELL = [
+  "/typography.css",
+  "/web-product-typography.js",
+  "/fonts/Manrope-Variable.ttf",
   "/web-product-panel.js",
   "/web-admin-console.js",
   "/web-login.js",

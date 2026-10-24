@@ -1,7 +1,10 @@
+import {webProductTypography} from './web-product-typography.js';
 const pricing=new Set(['getListingReview','searchListingOffers','previewListingPrice','approvePricedListing','rejectReviewedListing']);
 export async function mountWebProductPanel(root,{api,identity,onLogout,onSessionChanged}){
   await import('./web-admin-console.js');
   const panel=document.createElement('parca-zinciri-admin-ops');
+  const render=panel._render.bind(panel);
+  panel._render=()=>{render();const style=document.createElement('style');style.dataset.mobileTypography='';style.textContent=webProductTypography;panel.shadowRoot.append(style);};
   let active=true;
   panel.mobileAdapter={identity:{...identity,displayName:identity.companyName},logout:onLogout,call:async(method,payload)=>{
     try{
