@@ -16,6 +16,8 @@ import { uploadFile, uploadPercent } from "./upload.js";
 import { readVideoDuration } from "./video.js";
 import {recordVideo} from './recorder.js';
 import {mountNotifications,checkNotifications} from './notifications.js';
+import {mountWebLogin} from './web-login.js';
+let disposeWebLogin=null;
 let editingKey='', editSeed=null, nextOffset=null, listSearch='', listStatus='', offlineEditor=false;
 let listRequest=0;
 let liveMode = !['localhost','127.0.0.1'].includes(location.hostname);
@@ -106,6 +108,7 @@ function textarea(name, label, required = false) {
   return `<label class="field full">${label}<textarea name="${name}" ${required ? "required" : ""}></textarea></label>`;
 }
 function showLogin() {
+  disposeWebLogin?.();disposeWebLogin=null;
   screenHistory?.dispose(); screenHistory = null;
   cleanup();
   identity = null;
@@ -114,6 +117,7 @@ function showLogin() {
   if(liveMode){
     app.innerHTML=`<div class="narrow"><p class="eyebrow">Parça Zinciri Mobil</p><h1>Hesabınıza giriş yapın.</h1><p class="sub">Web panelindeki hesabınızla ürünlerinizi fotoğraf, video ve fiyat bilgisiyle gönderin.</p><form id="live-login" class="panel">${select('portal','Giriş türü',{tedarikci:'Tedarikçi',yonetici:'Yönetim'})}${input('email','E-posta','email','autocomplete="username"')}${input('password','Şifre','password','autocomplete="current-password"')}<button class="primary" type="submit">Giriş yap</button><p class="help">Girişiniz bu cihazda 90 gün hatırlanır; şifreniz saklanmaz. Ortak cihaz kullanıyorsanız işiniz bitince Çıkış düğmesine basın.</p></form></div>`;
     const form=document.querySelector('#live-login');form.elements.portal.value='tedarikci';
+    disposeWebLogin=mountWebLogin(form.parentElement,{api,onComplete:async()=>{message('');await boot();},onError:text=>message(text,true)});
     form.insertAdjacentHTML('beforeend','<button id="forgot-password" class="secondary" type="button">Şifremi unuttum</button>');
     form.querySelector('#forgot-password').onclick=async event=>{const email=form.elements.email;if(!email.reportValidity())return;event.target.disabled=true;try{const result=await api('resetPassword',{email:email.value});message(result.message);}catch(e){message(e.message,true);}finally{event.target.disabled=false;}};
     form.onsubmit=async e=>{e.preventDefault();const b=form.querySelector('button');b.disabled=true;try{await api('login',Object.fromEntries(new FormData(form)));form.elements.password.value='';message('');await boot();}catch(err){message(err.message,true);}finally{b.disabled=false;}};
@@ -135,6 +139,7 @@ function showLogin() {
   );
 }
 async function boot() {
+  disposeWebLogin?.();disposeWebLogin=null;
   try {
     const config = ['localhost','127.0.0.1'].includes(location.hostname)&&navigator.onLine?await api('config').catch(e=>{if(hasRememberedSession())return {mode:'live'};throw e;}):{mode:'live'};
     liveMode=config.mode==='live';

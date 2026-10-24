@@ -29,15 +29,28 @@ export function createSessionClient({request,storage,now=Date.now}){
     refreshing=job;
     try{return await job;}finally{if(refreshing===job)refreshing=null;}
   }
+  function saveLogin(result){
+    if(!result.refreshToken||!(Date.parse(result.refreshExpiresAt)>now()))throw new Error('Kalıcı oturum oluşturulamadı. Yeniden deneyin.');
+    generation++;refreshing=null;accept(result);
+    try{storage.setItem(KEY,JSON.stringify({refreshToken:result.refreshToken,refreshExpiresAt:result.refreshExpiresAt}));observedRefresh=result.refreshToken;}
+    catch{access='';expires=0;throw new Error('Oturum cihazda saklanamadı. Uygulama depolamasını kontrol edin.');}
+    return {ok:true};
+  }
   return {
     hasRememberedSession:()=>Boolean(read()),
+    cancelPair(){generation++;},
     async login(payload){
       const result=await request({method:'login',...payload});
-      if(!result.refreshToken||!(Date.parse(result.refreshExpiresAt)>now()))throw new Error('Kalıcı oturum oluşturulamadı. Yeniden deneyin.');
-      generation++;refreshing=null;accept(result);
-      try{storage.setItem(KEY,JSON.stringify({refreshToken:result.refreshToken,refreshExpiresAt:result.refreshExpiresAt}));observedRefresh=result.refreshToken;}
-      catch{access='';expires=0;throw new Error('Oturum cihazda saklanamadı. Uygulama depolamasını kontrol edin.');}
-      return {ok:true};
+      return saveLogin(result);
+    },
+    async completePair(payload){
+      const version=generation,previous=read()?.refreshToken;
+      const result=await request({method:'pairPoll',payload});
+      if(result.status==='complete'){
+        if(version!==generation||read()?.refreshToken!==previous){await request({method:'deviceLogout',refreshToken:result.refreshToken}).catch(()=>{});throw unauthorized();}
+        saveLogin(result);
+      }
+      return {status:result.status};
     },
     async call(method,payload={}){
       const deviceAtStart=syncDevice();

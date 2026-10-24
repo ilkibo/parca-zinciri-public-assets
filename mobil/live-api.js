@@ -11,6 +11,9 @@ const session=createSessionClient({request,storage:{getItem:key=>localStorage.ge
 const rpc=(method,payload)=>session.call(method,payload);
 export const hasRememberedSession=()=>session.hasRememberedSession();
 export async function liveApi(route,body) {
+  if(route==='pairCancel')return session.cancelPair();
+  if(route==='pairStart')return request({method:'pairStart'});
+  if(route==='pairPoll')return session.completePair(body);
   if(route==='login')return session.login(body);
   if(route==='resetPassword')return request({method:'resetPassword',email:body.email});
   if(route==='logout')return session.logout();

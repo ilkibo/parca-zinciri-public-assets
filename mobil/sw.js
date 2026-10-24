@@ -1,5 +1,6 @@
-const CACHE = "pz-mobile-shell-v17-explorer";
+const CACHE = "pz-mobile-shell-v18-web-login";
 const SHELL = [
+  "/web-login.js",
   "/recorder.js",
   "/notifications.js",
   "/",
