@@ -28,7 +28,7 @@ function pzArticleCover(title) {
 // END ARTICLE COVER
 (() => {
 // BEGIN ARTICLE BODY RENDERER
-// Deliberate small text format: ##/### headings, lists, and HTTP(S) links.
+// Deliberate small text format: headings, lists, pipe tables, and HTTP(S) links.
 // Raw HTML is always escaped; no Markdown dependency or executable HTML.
 function pzRenderArticleBody(input) {
  const escape=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -55,6 +55,15 @@ function pzRenderArticleBody(input) {
   const heading=block.match(/^(#{2,3})[ \t]+([^\n]+)$/);
   if(heading){const tag=heading[1].length===2?'h2':'h3';return '<'+tag+'>'+inline(heading[2])+'</'+tag+'>';}
   const lines=block.split('\n');
+  if(lines.length>=3&&lines.every(line=>/^\s*\|.*\|\s*$/.test(line))){
+   const rows=lines.map(line=>line.trim().slice(1,-1).split('|').map(cell=>cell.trim()));
+   const width=rows[0].length;
+   if(width>=2&&rows.every(row=>row.length===width)&&rows[1].every(cell=>/^:?-{3,}:?$/.test(cell))){
+    const head='<thead><tr>'+rows[0].map(cell=>'<th scope="col">'+inline(cell)+'</th>').join('')+'</tr></thead>';
+    const body='<tbody>'+rows.slice(2).map(row=>'<tr>'+row.map((cell,i)=>i===0?'<th scope="row">'+inline(cell)+'</th>':'<td>'+inline(cell)+'</td>').join('')+'</tr>').join('')+'</tbody>';
+    return '<div class="table-wrap" role="region" aria-label="Veri tablosu" tabindex="0"><table>'+head+body+'</table></div>';
+   }
+  }
   if(lines.every(line=>/^- +\S/.test(line)))return '<ul>'+lines.map(line=>'<li>'+inline(line.replace(/^- +/,''))+'</li>').join('')+'</ul>';
   if(lines.length>1&&lines.every((line,i)=>line.startsWith(String(i+1)+'. ')))return '<ol>'+lines.map(line=>'<li>'+inline(line.replace(/^\d+\. /,''))+'</li>').join('')+'</ol>';
   return '<p>'+inline(block).replace(/\n/g,'<br>')+'</p>';
@@ -92,7 +101,7 @@ function pzRenderArticleBody(input) {
     this.shadowRoot.querySelector('button')?.addEventListener('click',()=>{this.offset+=30;this.load();});
    }catch(e){this.shadowRoot.innerHTML=this.shell('<p role="alert">'+esc(e.message)+'</p><a href="/makaleler">Yeniden dene</a>');}
   }
-  shell(body){return '<style>:host{display:block;background:#f5f3ee;color:#181b20;font:17px/1.7 Arial,sans-serif;min-height:70vh}*{box-sizing:border-box}main{max-width:1200px;margin:auto;padding:48px 24px}nav{background:white;border-bottom:1px solid #ddd;padding:18px 24px;display:flex;gap:24px;flex-wrap:wrap}a{color:inherit}nav a{text-decoration:none;font-weight:700}nav a:first-child{color:#ed5f00;margin-right:auto}h1{font-size:clamp(32px,5vw,52px);line-height:1.15}h2{font-size:24px;line-height:1.3}.eyebrow,.meta{color:#9c4100}.lead{color:#54606c}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:24px}.card{background:white;border:1px solid #ddd;border-radius:14px;overflow:hidden;text-decoration:none}.card div{padding:24px}.card img{width:100%;height:210px;object-fit:cover}.card strong{color:#a73f00}article{max-width:820px;margin:auto}article img{width:100%;max-height:440px;object-fit:cover;border-radius:12px}.body{overflow-wrap:anywhere;font-size:19px}.body a{color:#a73f00;text-underline-offset:.18em}.body h2,.body h3{margin-top:1.8em}.body h3{font-size:22px;line-height:1.35}.body ul,.body ol{padding-left:1.5em}.body li+li{margin-top:.4em}button{background:#ff6b00;border:0;border-radius:8px;padding:14px 22px;font:inherit;margin-top:24px;cursor:pointer}a:focus-visible,button:focus-visible{outline:3px solid #ff6b00;outline-offset:4px}</style><nav aria-label="Site menüsü"><a href="/">PARÇA ZİNCİRİ</a><a href="/yedek-parcalar">Ürünler</a><a href="/kataloglar">Kataloglar</a><a href="/makaleler" aria-current="page">Makaleler</a></nav><main>'+body+'</main>';}
+  shell(body){return '<style>:host{display:block;background:#f5f3ee;color:#181b20;font:17px/1.7 Arial,sans-serif;min-height:70vh}*{box-sizing:border-box}main{max-width:1200px;margin:auto;padding:48px 24px}nav{background:white;border-bottom:1px solid #ddd;padding:18px 24px;display:flex;gap:24px;flex-wrap:wrap}a{color:inherit}nav a{text-decoration:none;font-weight:700}nav a:first-child{color:#ed5f00;margin-right:auto}h1{font-size:clamp(32px,5vw,52px);line-height:1.15}h2{font-size:24px;line-height:1.3}.eyebrow,.meta{color:#9c4100}.lead{color:#54606c}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:24px}.card{background:white;border:1px solid #ddd;border-radius:14px;overflow:hidden;text-decoration:none}.card div{padding:24px}.card img{width:100%;height:210px;object-fit:cover}.card strong{color:#a73f00}article{max-width:820px;margin:auto}article img{width:100%;max-height:440px;object-fit:cover;border-radius:12px}.body{overflow-wrap:anywhere;font-size:19px}.body a{color:#a73f00;text-underline-offset:.18em}.body h2,.body h3{margin-top:1.8em}.body h3{font-size:22px;line-height:1.35}.body ul,.body ol{padding-left:1.5em}.body li+li{margin-top:.4em}.table-wrap{max-width:100%;overflow-x:auto;margin:24px 0;border:1px solid #d8d3cb;border-radius:8px;background:#fff}.table-wrap:focus-visible{outline:3px solid #ff6b00;outline-offset:3px}.body table{width:100%;border-collapse:collapse;font-size:16px;line-height:1.5;text-align:left}.body th,.body td{padding:12px 14px;border-bottom:1px solid #e5e1da;vertical-align:top}.body thead{background:#eee8de}.body tbody th{font-weight:600}.body tr:last-child th,.body tr:last-child td{border-bottom:0}@media(max-width:480px){.body table{font-size:14px}.body th,.body td{padding:10px 8px}}button{background:#ff6b00;border:0;border-radius:8px;padding:14px 22px;font:inherit;margin-top:24px;cursor:pointer}a:focus-visible,button:focus-visible{outline:3px solid #ff6b00;outline-offset:4px}</style><nav aria-label="Site menüsü"><a href="/">PARÇA ZİNCİRİ</a><a href="/yedek-parcalar">Ürünler</a><a href="/kataloglar">Kataloglar</a><a href="/makaleler" aria-current="page">Makaleler</a></nav><main>'+body+'</main>';}
  }
  if(!customElements.get('parca-zinciri-articles'))customElements.define('parca-zinciri-articles',Articles);
 })();
