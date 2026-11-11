@@ -1,0 +1,37 @@
+Eski / yeni kod karar kaydı — boş şablon
+
+Boş form: gerçek kodları ve dayanaklarını ilgili alanlara yazın.
+
+Kimlik
+
+- Talep / kalem kimliği:
+- Makine / komponent kaydı:
+- Mevcut belgede görünen eski kod (aynen):
+- Teklifte önerilen yeni kod (aynen):
+- İddianın türü: [Üretici kod değişikliği / satıcı alternatifi / yazım biçimi farkı / henüz bilinmiyor]
+
+Kanıt çizelgesi
+
+| Kontrol | İddia / kayıt | Dayanak belgesi ve sürümü | Teyit eden / tarih | Açık soru |
+|---|---|---|---|---|
+| Eski kodun kaynağı | | | | |
+| Yeni kod önerisinin kaynağı | | | | |
+| Değişikliğin kapsadığı ürün / uygulama | | | | |
+| Makine / seri koşulu belirtilmiş mi? | | | | |
+| Tek parça / kit / takım kapsamı | | | | |
+| İlave parça veya işlem koşulu var mı? | | | | |
+| Teklif belgesindeki tam kimlik | | | | |
+
+Kayıt durumu
+
+- [ ] İnceleme bekliyor: dayanak veya kapsam eksik.
+- [ ] Çelişki var: farklı kayıtlar uyuşmuyor; çözümü bekleniyor.
+- [ ] Belge ve uygulama kapsamı ilgili uzman tarafından teyit edildi.
+
+Sonucu yazan kişi / kurum:
+İlgili belgenin URL'si veya ek kimliği:
+Sonuç tarihi:
+Çözülemeyen sorular:
+
+Bir kutuyu doldurmak teknik onay yaratmaz. Son durum yalnız gerçek inceleme ve dayanağı varsa kullanılmalıdır.
+Rakip veya satıcı blogundaki örnek, üretici değişiklik belgesi yerine yazılmamalıdır.

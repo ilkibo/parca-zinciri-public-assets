@@ -1,0 +1,3 @@
+﻿talep_id,kalem_id,makine_kayit_id,parca_tanimi,tam_kod,kod_durumu,belge_ek_id,miktar,birim,alternatif_izni,istenen_urun_durumu,teslim_yeri,gereken_tarih,not
+ORNEK-01,K001,,,,bilinmiyor,,,,karar_verilmedi,,,,
+ORNEK-01,K002,,,,bilinmiyor,,,,karar_verilmedi,,,,

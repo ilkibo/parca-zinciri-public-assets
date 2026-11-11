@@ -1,0 +1,2 @@
+﻿yanit_id,talep_id,kalem_id,tedarikci_kayit_id,yanit_tarihi,yanit_durumu,teklif_edilen_marka,teklif_edilen_tam_kod,urun_durumu,dahil_parcalar,uygunluk_dayanagi,teklif_miktari,fiyat_birimi,birim_fiyat,para_birimi,vergi_durumu,nakliye_durumu,stok_teyit_tarihi,stok_adedi,stok_ayirma_durumu,sevk_tarihi,tahmini_teslim_tarihi,teslim_kosulu,teklif_gecerlilik,garanti_belgesi,acik_soru
+ORNEK-Y01,ORNEK-01,K001,,,yanit_bekleniyor,,,,,,,,,,,,,,,,,,,,

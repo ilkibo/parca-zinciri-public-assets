@@ -1,0 +1,48 @@
+Parça bilgi dosyası — boş şablon
+
+Boş form: köşeli parantezli alanları kendi bilgilerinizle doldurun.
+Amaç: Talep içindeki bilgiyi, dayanağını ve bilinmeyeni birlikte tutmak.
+
+Talebin kimliği
+
+- Talep kimliği: [DOLDURUN]
+- Kalem kimliği: [K001 gibi; talep boyunca değiştirmeyin]
+- Dosya sürümü / güncelleme tarihi: [DOLDURUN]
+- Parçanın adı ve bulunduğu yer: [BİLİNEN BİLGİ]
+- İstenen miktar / birim: [DOLDURUN]
+- Teslim yeri / gerekli tarih: [DOLDURUN]
+
+Bilgi ve dayanak kaydı
+
+| Bilgi alanı | Aynen kaydedilen bilgi | Durum | Dayanak ek / belge | Açık soru |
+|---|---|---|---|---|
+| Makine marka / tam model | | Biliniyor / belirsiz / bilinmiyor | | |
+| Makine seri numarası | | | | |
+| İlgili komponentin kimliği | | | | |
+| Etikette görülen tam metin | | | | |
+| Önceki belge / fatura bilgisi | | | | |
+| Talep edilen takım / tek parça kapsamı | | | | |
+
+Etiketin asıl metnini koruyun; okunmayan karakteri kesinmiş gibi tamamlamayın.
+Bir numaranın parça kodu mu, seri numarası mı olduğu bilinmiyorsa alan adını da belirsiz bırakın.
+Boyut veya teknik değer gerektiğinde, doğrulanmış belgeye ya da yetkili teknik kişinin kaydına atıf yapın.
+Bu dosya söküm, teşhis veya çalışır makinede inceleme talimatı değildir.
+
+Ekler
+
+ek-listesi.csv dosyası içinde her ekin hangi kaleme ait olduğunu belirtin.
+Mevcut ve güvenle elde edilmiş fotoğraflar / belgeler kullanılabilir. Bulunmayan fotoğrafı var diye işaretlemeyin.
+
+Tedarikçiden beklenen yanıt
+
+- Teklif edilen ürünün tam marka / kodu ve ürün durumu.
+- Bilgiyi hangi belge veya incelemeye dayanarak eşleştirdiği.
+- Dahil edilen ve hariç tutulan parçalar.
+- Yanıt için gereken ek bilgi.
+- Teklif koşulları ve varsa açık uyumluluk soruları.
+
+Uyumluluk sonucu: [İNCELEME BEKLİYOR / BELGE İLE TEYİT EDİLDİ / ÇELİŞKİ VAR]
+Teyit eden kişi / kurum ve tarih: [GERÇEKTEN VARSA]
+Dayanak: [GERÇEKTEN VARSA]
+
+Eksik alanı boş bırakmak bilinmeyeni görünür tutar; ticari veya teknik onay oluşturmaz.

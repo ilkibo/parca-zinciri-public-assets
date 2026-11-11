@@ -1,0 +1,18 @@
+Teklif şablonlarının kullanımı
+
+Bu dosyalar Parça Zinciri için özgün hazırlanmış boş çalışma şablonlarıdır.
+Gerçek müşteri talebi, teklif veya tedarikçi teyidi içermez.
+Bu dosyalar talep hazırlamak içindir. Bir sisteme aktaracaksanız o sistemin kabul ettiği biçimi kontrol edin.
+
+1. toplu-teklif-talebi.csv içinde her ihtiyaca değişmeyen bir kalem kimliği verin.
+2. Makine kaydı ayrı bir belgedeyse makine_kayit_id ile ilişkilendirin. Aynı kod farklı makine veya koşul için isteniyorsa ayrı kalem açabilirsiniz.
+3. Asıl kodu koruyun. CSV'yi tablo programına içe aktarırken kod ve kimlik sütunlarını metin olarak seçin; baştaki sıfırları veya uzun numaraları otomatik sayıya çevirmeyin.
+4. Kod bilinmiyorsa değeri boş bırakıp kod_durumu alanını bilinmiyor olarak tutun. Miktar / birim bilinmiyorsa tahminle doldurmayın.
+5. Ekleri ek-listesi.csv içinde kalem kimliğiyle bağlayın. Dosya adı ve içerik açıklaması gerçek dosyayla eşleşmeli.
+6. tedarikci-yanitlari.csv alıcı talebinin kopyası değildir; aynı kalem kimliğini referans veren ayrı yanıt kaydıdır. İstenen kodu, önerilen kodla geriye dönük değiştirmeyin.
+7. Yeni tedarikçi veya revize yanıt için yeni yanıt kimliği ve zaman kaydı kullanın. Bir kalem yanıtsızsa durumu yanıt_bekleniyor olarak bırakın.
+8. Ürün kimliği, ürün durumu, dahil parçalar, fiyat birimi, vergi, nakliye ve teslim koşulları karşılaştırılmadan toplam maliyet çıkarmayın.
+9. Teknik uygunluk ve kod değişikliği onayı için dayanak belgeyi kaydedin. Satıcının beyanını üretici onayı diye etiketlemeyin.
+
+CSV'lerde ORNEK ile başlayan satır yalnız biçim örneğidir. Satırdaki boş değerler bilinçli bırakılmıştır.
+Dosyalar UTF-8 biçimindedir; virgül ayırıcı kullanır. Otomatik toplam, stok sorgusu veya teknik uygunluk hesabı yapmaz.
